@@ -240,6 +240,24 @@
             <button type="button" class="btn secondary" style="padding: 6px 12px;" onclick="toggleAnalysisTitleEdit()">✕</button>
         </div>
         <p style="margin: 8px 0 0 0; color: #666; font-size: 14px;">Результат распознавания</p>
+
+        <div class="card" style="padding: 16px; margin-top: 16px; margin-bottom: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <p style="margin: 0 0 12px 0;">
+                <strong>Исходный файл:</strong>
+                <a href="{{ path('app_analysis_original_file', {id: analysis.id}) }}" target="_blank" rel="noopener">открыть или скачать</a>
+                <span style="color:#64748b;font-size:14px;">({{ analysis.filePath|split('/')|last }})</span>
+            </p>
+            <div id="analysis-date-display-row" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <strong>Дата анализа:</strong>
+                <span id="analysis-date-text">{{ analysis.analysisDate ? analysis.analysisDate|date('d.m.Y') : '—' }}</span>
+                <button type="button" class="btn secondary" style="padding: 2px 8px; font-size: 13px;" onclick="toggleAnalysisDateEdit()" title="Изменить дату">✎</button>
+            </div>
+            <div id="analysis-date-edit-row" style="display: none; margin-top: 10px; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <input type="date" id="analysis-date-input" value="{{ analysis.analysisDate ? analysis.analysisDate|date('Y-m-d') : '' }}" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px;">
+                <button type="button" class="btn" style="padding: 4px 10px; background: #27ae60;" onclick="saveAnalysisDate()">✓</button>
+                <button type="button" class="btn secondary" style="padding: 4px 10px;" onclick="toggleAnalysisDateEdit()">✕</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -281,6 +299,47 @@
         })
         .catch(err => { console.error(err); alert('Ошибка сохранения'); });
     }
+    function formatAnalysisDateRu(ymd) {
+        if (!ymd) return '—';
+        const p = ymd.split('-');
+        if (p.length !== 3) return ymd;
+        return p[2] + '.' + p[1] + '.' + p[0];
+    }
+    function toggleAnalysisDateEdit() {
+        const a = document.getElementById('analysis-date-display-row');
+        const b = document.getElementById('analysis-date-edit-row');
+        if (!a || !b) return;
+        if (b.style.display === 'none' || b.style.display === '') {
+            b.style.display = 'flex';
+            a.style.display = 'none';
+            const inp = document.getElementById('analysis-date-input');
+            if (inp) inp.focus();
+        } else {
+            b.style.display = 'none';
+            a.style.display = 'flex';
+        }
+    }
+    function saveAnalysisDate() {
+        const inp = document.getElementById('analysis-date-input');
+        if (!inp) return;
+        const v = inp.value.trim();
+        fetch({{ path('app_analysis_update_date', {id: analysis.id})|json_encode|raw }}, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'date=' + encodeURIComponent(v)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const el = document.getElementById('analysis-date-text');
+                if (el) el.textContent = formatAnalysisDateRu(data.date || '');
+                toggleAnalysisDateEdit();
+            } else {
+                alert(data.error || 'Не удалось сохранить дату');
+            }
+        })
+        .catch(err => { console.error(err); alert('Ошибка сохранения'); });
+    }
     </script>
     
     {% if analysis.status == constant('App\\Entity\\Analysis::STATUS_COMPLETED') %}
@@ -301,11 +360,12 @@
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
                     {% set debugFilenames = analysis.debugImagesPathsArray %}
                     {% if debugFilenames|length > 0 %}
-                        {% for filename in debugFilenames %}
+                        {% for rel in debugFilenames %}
+                        {% set previewBase = rel|split('/')|last %}
                         <div style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden; background: white;">
-                            <img src="{{ path('app_upload_debug_image', {filename: filename}) }}" style="width: 100%; height: auto; display: block;" alt="Debug image" loading="lazy">
+                            <img src="{{ path('app_analysis_document_preview', {id: analysis.id, filename: previewBase}) }}" style="width: 100%; height: auto; display: block;" alt="Страница документа" loading="lazy">
                             <div style="padding: 8px; font-size: 12px; color: #666; border-top: 1px solid #eee; word-break: break-all;">
-                                {{ filename }}
+                                {{ previewBase }}
                             </div>
                         </div>
                         {% endfor %}
@@ -456,11 +516,12 @@
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
                     {% set debugFilenames = analysis.debugImagesPathsArray %}
                     {% if debugFilenames|length > 0 %}
-                        {% for filename in debugFilenames %}
+                        {% for rel in debugFilenames %}
+                        {% set previewBase = rel|split('/')|last %}
                         <div style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden; background: white;">
-                            <img src="{{ path('app_upload_debug_image', {filename: filename}) }}" style="width: 100%; height: auto; display: block;" alt="Debug image" loading="lazy">
+                            <img src="{{ path('app_analysis_document_preview', {id: analysis.id, filename: previewBase}) }}" style="width: 100%; height: auto; display: block;" alt="Страница документа" loading="lazy">
                             <div style="padding: 8px; font-size: 12px; color: #666; border-top: 1px solid #eee; word-break: break-all;">
-                                {{ filename }}
+                                {{ previewBase }}
                             </div>
                         </div>
                         {% endfor %}

@@ -16,6 +16,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -285,6 +286,99 @@ class AnalysisController extends AbstractController
     }
 
     /**
+     * Дата анализа (распознанная моделью или вручную).
+     */
+    #[Route('/{id}/analysis-date', name: 'app_analysis_update_date', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function updateAnalysisDate(int $id, Request $request): JsonResponse
+    {
+        $user = $this->getCurrentUser();
+        if (!$user) {
+            return new JsonResponse(['error' => 'Не авторизован'], 401);
+        }
+
+        $analysis = $this->analysisRepository->findOneByIdAndUser($id, $user);
+        if (!$analysis) {
+            return new JsonResponse(['error' => 'Анализ не найден'], 404);
+        }
+
+        $raw = $request->request->get('date', '');
+        $raw = \is_string($raw) ? trim($raw) : '';
+        if ($raw === '') {
+            $analysis->setAnalysisDate(null);
+        } else {
+            $parsed = \DateTimeImmutable::createFromFormat('Y-m-d', $raw);
+            if ($parsed === false) {
+                return new JsonResponse(['error' => 'Ожидается дата в формате ГГГГ-ММ-ДД'], 400);
+            }
+            $analysis->setAnalysisDate($parsed);
+        }
+
+        $this->entityManager->flush();
+
+        return new JsonResponse([
+            'success' => true,
+            'date' => $analysis->getAnalysisDate()?->format('Y-m-d'),
+        ]);
+    }
+
+    /**
+     * Скачать / открыть исходный загруженный файл.
+     */
+    #[Route('/{id}/file', name: 'app_analysis_original_file', methods: ['GET'], requirements: ['id' => '\d+'])]
+    public function originalFile(int $id): Response
+    {
+        $user = $this->getCurrentUser();
+        if (!$user) {
+            return $this->redirectToRoute('auth_login');
+        }
+
+        $analysis = $this->analysisRepository->findOneByIdAndUser($id, $user);
+        if (!$analysis) {
+            throw $this->createNotFoundException('Анализ не найден');
+        }
+
+        $rel = $analysis->getFilePath();
+        if (!$rel) {
+            throw $this->createNotFoundException('Файл не найден');
+        }
+
+        $uploadDir = (string) $this->getParameter('upload_dir');
+        $abs = $uploadDir . '/' . $rel;
+        if (!is_file($abs)) {
+            throw $this->createNotFoundException('Файл не найден на диске');
+        }
+
+        return $this->file($abs, basename($rel), ResponseHeaderBag::DISPOSITION_INLINE);
+    }
+
+    /**
+     * Постоянные превью страниц документа (раньше лежали в /debug и удалялись по таймеру).
+     */
+    #[Route('/{id}/preview/{filename}', name: 'app_analysis_document_preview', methods: ['GET'], requirements: ['id' => '\d+', 'filename' => '[a-zA-Z0-9._-]+'])]
+    public function documentPreview(int $id, string $filename): Response
+    {
+        $user = $this->getCurrentUser();
+        if (!$user) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $analysis = $this->analysisRepository->findOneByIdAndUser($id, $user);
+        if (!$analysis) {
+            throw $this->createNotFoundException('Анализ не найден');
+        }
+
+        $uploadDir = (string) $this->getParameter('upload_dir');
+        $resolved = $this->resolveDocumentPreviewPath($analysis, $filename, $uploadDir);
+        if ($resolved === null) {
+            throw $this->createNotFoundException('Изображение не найдено');
+        }
+
+        return $this->file($resolved, $filename, ResponseHeaderBag::DISPOSITION_INLINE)
+            ->setPublic()
+            ->setMaxAge(3600);
+    }
+
+    /**
      * View analysis results
      */
     #[Route('/{id}', name: 'app_analysis_view', methods: ['GET'])]
@@ -313,5 +407,33 @@ class AnalysisController extends AbstractController
     {
         $validModels = array_column($this->availableModels, 'name');
         return in_array($model, $validModels, true);
+    }
+
+    /**
+     * @return non-falsy-string|null absolute filesystem path
+     */
+    private function resolveDocumentPreviewPath(Analysis $analysis, string $filename, string $uploadDir): ?string
+    {
+        foreach ($analysis->getDebugImagesPathsArray() as $rel) {
+            if (basename($rel) !== $filename) {
+                continue;
+            }
+
+            $candidates = [];
+            if (str_contains($rel, '/')) {
+                $candidates[] = $uploadDir . '/' . $rel;
+            } else {
+                $candidates[] = $uploadDir . '/document_previews/' . $analysis->getId() . '/' . $rel;
+                $candidates[] = $uploadDir . '/debug/' . $rel;
+            }
+
+            foreach ($candidates as $abs) {
+                if (is_file($abs)) {
+                    return $abs;
+                }
+            }
+        }
+
+        return null;
     }
 }

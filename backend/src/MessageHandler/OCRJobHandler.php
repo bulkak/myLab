@@ -69,6 +69,7 @@ class OCRJobHandler
             throw new UnrecoverableMessageHandlingException("User not found: {$userId}");
         }
 
+        $fullPath = null;
         try {
             // Update status to processing
             $analysis->setStatus(Analysis::STATUS_PROCESSING);
@@ -87,26 +88,13 @@ class OCRJobHandler
             ]);
             
             $parsedData = $this->ocrManager->process($fullPath, $model, (string)$analysisId);
-            
-            // Save debug images paths if available
-            $debugDir = $this->params->get('upload_dir') . '/debug';
-            if (is_dir($debugDir)) {
-                $debugImages = [];
-                foreach (['png', 'jpg', 'jpeg', 'gif'] as $ext) {
-                    $files = glob($debugDir . "/debug_{$analysisId}_page_*." . $ext);
-                    if (is_array($files)) {
-                        $debugImages = array_merge($debugImages, $files);
-                    }
-                }
-                if (!empty($debugImages)) {
-                    // Store only filenames (not full paths) for security
-                    $debugFilenames = array_map('basename', $debugImages);
-                    $analysis->setDebugImagesPaths(json_encode($debugFilenames));
-                    // Clean up old debug files (keep only recent ones)
-                    $this->cleanupOldDebugImages($debugDir);
-                }
+
+            $uploadDir = (string) $this->params->get('upload_dir');
+            $previewPaths = $this->persistAnalysisDocumentImages($analysisId, $fullPath, $uploadDir);
+            if ($previewPaths !== []) {
+                $analysis->setDebugImagesPaths(json_encode($previewPaths, JSON_UNESCAPED_UNICODE));
             }
-            
+
             // Save raw OCR result for debugging (serialize the array)
             $analysis->setOcrRawText(json_encode($parsedData, JSON_UNESCAPED_UNICODE));
 
@@ -154,23 +142,14 @@ class OCRJobHandler
             $analysis->setStatus(Analysis::STATUS_ERROR);
             $analysis->setErrorMessage($e->getMessage());
             
-            // Try to save debug images even on error
-            $debugDir = $this->params->get('upload_dir') . '/debug';
-            if (is_dir($debugDir)) {
-                $debugImages = [];
-                foreach (['png', 'jpg', 'jpeg', 'gif'] as $ext) {
-                    $files = glob($debugDir . "/debug_{$analysisId}_page_*." . $ext);
-                    if (is_array($files)) {
-                        $debugImages = array_merge($debugImages, $files);
-                    }
-                }
-                if (!empty($debugImages)) {
-                    $debugFilenames = array_map('basename', $debugImages);
-                    $analysis->setDebugImagesPaths(json_encode($debugFilenames));
-                    $this->cleanupOldDebugImages($debugDir);
+            $uploadDir = (string) $this->params->get('upload_dir');
+            if ($fullPath !== null && is_file($fullPath)) {
+                $previewPaths = $this->persistAnalysisDocumentImages($analysisId, $fullPath, $uploadDir);
+                if ($previewPaths !== []) {
+                    $analysis->setDebugImagesPaths(json_encode($previewPaths, JSON_UNESCAPED_UNICODE));
                 }
             }
-            
+
             $this->entityManager->flush();
             
             $this->logger->error("Error in OCR processing: {$e->getMessage()}", [
@@ -190,28 +169,55 @@ class OCRJobHandler
     }
 
     /**
-     * Clean up debug images older than 1 hour.
+     * Копирует страницы документа в постоянное хранилище (document_previews/{id}/),
+     * чтобы превью не пропадали после очистки временного каталога /debug.
+     * Для загрузки сразу картинки (не PDF) копирует исходный файл как page_1.*.
+     *
+     * @return list<string> пути относительно upload_dir
      */
-    private function cleanupOldDebugImages(string $debugDir): void
+    private function persistAnalysisDocumentImages(int $analysisId, string $fullPath, string $uploadDir): array
     {
-        $oneHourAgo = time() - 3600;
-        
-        $files = [];
-        foreach (['png', 'jpg', 'jpeg', 'gif'] as $ext) {
-            $matched = glob($debugDir . '/debug_*_page_*.' . $ext);
-            if (is_array($matched)) {
-                $files = array_merge($files, $matched);
+        $permDir = $uploadDir . '/document_previews/' . $analysisId;
+        if (!is_dir($permDir) && !@mkdir($permDir, 0775, true) && !is_dir($permDir)) {
+            $this->logger->error('Cannot create document_previews directory', ['dir' => $permDir]);
+
+            return [];
+        }
+
+        $rels = [];
+        $debugDir = $uploadDir . '/debug';
+        foreach (['png', 'jpg', 'jpeg', 'gif', 'webp'] as $ext) {
+            $pattern = $debugDir . "/debug_{$analysisId}_page_*." . $ext;
+            foreach (glob($pattern) ?: [] as $src) {
+                $base = basename($src);
+                $dest = $permDir . '/' . $base;
+                if (@copy($src, $dest)) {
+                    $rels[] = 'document_previews/' . $analysisId . '/' . $base;
+                    @unlink($src);
+                }
             }
         }
-        
-        if ($files === false) {
-            return;
+
+        natsort($rels);
+        $rels = array_values($rels);
+
+        if ($rels !== []) {
+            return $rels;
         }
-        
-        foreach ($files as $file) {
-            if (filemtime($file) < $oneHourAgo) {
-                @unlink($file);
+
+        $mime = @mime_content_type($fullPath) ?: '';
+        if (str_starts_with($mime, 'image/')) {
+            $ext = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION) ?: 'png');
+            if (!preg_match('/^(png|jpe?g|gif|webp|bmp|tiff?)$/i', $ext)) {
+                $ext = 'png';
+            }
+            $destName = 'page_1.' . $ext;
+            $dest = $permDir . '/' . $destName;
+            if (@copy($fullPath, $dest)) {
+                return ['document_previews/' . $analysisId . '/' . $destName];
             }
         }
+
+        return [];
     }
 }
