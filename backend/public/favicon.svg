@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="MyLab">
+  <rect width="32" height="32" rx="6" fill="#2c3e50"/>
+  <path fill="none" stroke="#ffffff" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"
+    d="M 5.5 17.5
+       C 5.5 12.5 8.5 10.5 11.5 13.5
+       L 14.5 20.5
+       L 18.5 8.5
+       L 22.5 16.5
+       C 24.5 12.5 27 12.5 29 9"/>
+</svg>

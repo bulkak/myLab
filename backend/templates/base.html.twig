@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}myLab{% endblock %}</title>
-    
+    <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.12" integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2XoQrxeTUQyRjrOnlCoYta87iKBWq3EsdM2" crossorigin="anonymous"></script>
     
@@ -43,6 +44,20 @@
         
         header h1 {
             font-size: 1.5rem;
+            margin: 0;
+        }
+
+        .site-logo-link {
+            display: inline-flex;
+            align-items: center;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .site-logo-link img {
+            display: block;
+            height: 34px;
+            width: auto;
         }
         
         header nav a {
@@ -174,7 +189,11 @@
 <body>
     <header>
         <div class="container">
-            <h1>myLab</h1>
+            <h1>
+                <a href="{{ path('app_dashboard') }}" class="site-logo-link">
+                    <img src="{{ asset('images/logo-mylab-header.svg') }}" alt="MyLab" width="200" height="40">
+                </a>
+            </h1>
             <nav>
                 {% block nav %}
                     <a href="{{ path('auth_login') }}">Вход</a>

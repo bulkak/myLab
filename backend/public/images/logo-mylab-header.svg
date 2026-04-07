@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40" role="img" aria-label="MyLab">
+  <g fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 6 28
+             C 6 16 11 12 18 18
+             L 26 32
+             L 36 10
+             L 46 26
+             C 52 16 60 18 66 12"/>
+  </g>
+  <text x="78" y="27" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="600" fill="#ffffff" letter-spacing="-0.02em">MyLab</text>
+</svg>
