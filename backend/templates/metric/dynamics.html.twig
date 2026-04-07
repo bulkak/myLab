@@ -265,10 +265,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const values = [];
     
     {% for metric in metrics %}
-        labels.push('{{ metric.analysis.analysisDate ? metric.analysis.analysisDate|date('d.m.Y') : metric.analysis.createdAt|date('d.m.Y') }}');
-        
-        let val = '{{ metric.value }}'.replace(',', '.').replace(/[^0-9.-]/g, '');
-        values.push(parseFloat(val) || 0);
+        {
+            labels.push('{{ metric.analysis.analysisDate ? metric.analysis.analysisDate|date('d.m.Y') : metric.analysis.createdAt|date('d.m.Y') }}');
+            const parsedVal = '{{ metric.value|e('js') }}'.replace(',', '.').replace(/[^0-9.-]/g, '');
+            values.push(parseFloat(parsedVal) || 0);
+        }
     {% endfor %}
 
     new Chart(ctx, {
