@@ -1,0 +1,74 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Главная - myLab{% endblock %}
+
+{% block nav %}
+    <a href="{{ path('app_upload') }}">Загрузить анализ</a>
+    <a href="{{ path('app_history') }}">История</a>
+    <a href="{{ path('app_api_logs') }}">Логи API</a>
+    <form method="POST" action="{{ path('auth_logout') }}" style="display: inline;" hx-boost="false">
+        <button type="submit" class="secondary" style="padding: 8px 16px;">Выйти</button>
+    </form>
+{% endblock %}
+
+{% block body %}
+<h2 style="margin-bottom: 30px;">Добро пожаловать в myLab</h2>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+    <div class="card">
+        <h3 style="margin-bottom: 15px;">Загрузить новый анализ</h3>
+        <p style="color: #666; margin-bottom: 20px;">
+            Загрузите PDF или изображение с результатами анализа для автоматического распознавания.
+        </p>
+        <a href="{{ path('app_upload') }}" class="btn">Загрузить файл</a>
+    </div>
+    
+    <div class="card">
+        <h3 style="margin-bottom: 15px;">История анализов</h3>
+        <p style="color: #666; margin-bottom: 20px;">
+            Просмотрите историю всех ваших анализов и динамику показателей.
+        </p>
+        <a href="{{ path('app_history') }}" class="btn">Открыть историю</a>
+    </div>
+</div>
+
+{% if recentMetrics|length > 0 %}
+<div class="card" style="margin-top: 30px;">
+    <h3 style="margin-bottom: 20px;">Последние сохраненные показатели</h3>
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="border-bottom: 2px solid #ddd;">
+                <th style="text-align: left; padding: 10px;">Дата анализа</th>
+                <th style="text-align: left; padding: 10px;">Показатель</th>
+                <th style="text-align: left; padding: 10px;">Значение</th>
+                <th style="text-align: left; padding: 10px;">Статус</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for metric in recentMetrics %}
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px;">{{ metric.analysis.analysisDate ? metric.analysis.analysisDate|date('d.m.Y') : metric.analysis.createdAt|date('d.m.Y') }}</td>
+                <td style="padding: 10px;">
+                    <a href="{{ metric_dynamics_path(metric.canonicalName ?? metric.name) }}" class="text-indigo-600 hover:text-indigo-900 font-medium" style="text-decoration: none; color: #3498db;">
+                        {{ metric.canonicalName ?? metric.name }}
+                    </a>
+                </td>
+                <td style="padding: 10px;">
+                    <strong>{{ metric.value }}</strong> <span style="color: #666; font-size: 0.9em;">{{ metric.unit }}</span>
+                </td>
+                <td style="padding: 10px;">
+                    {% if metric.isAboveNormal %}
+                        <span style="color: #e74c3c; font-weight: 600;">↑ Выше нормы</span>
+                    {% elseif metric.isBelowNormal %}
+                        <span style="color: #e67e22; font-weight: 600;">↓ Ниже нормы</span>
+                    {% else %}
+                        <span style="color: #27ae60;">✓ Норма</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

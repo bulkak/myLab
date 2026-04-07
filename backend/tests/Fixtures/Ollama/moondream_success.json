@@ -1,0 +1,4 @@
+{
+  "model": "moondream:1.8b",
+  "response": "{\n  \"title\": \"Анализ мочи\",\n  \"analysisDate\": \"2024-02-28\",\n  \"metrics\": [\n    {\n      \"name\": \"pH мочи\",\n      \"value\": \"6.0\",\n      \"unit\": \"pH\",\n      \"referenceMin\": \"5.0\",\n      \"referenceMax\": \"7.0\",\n      \"isAboveNormal\": false,\n      \"isBelowNormal\": false\n    },\n    {\n      \"name\": \"Удельный вес\",\n      \"value\": \"1.020\",\n      \"unit\": \"\",\n      \"referenceMin\": \"1.005\",\n      \"referenceMax\": \"1.030\",\n      \"isAboveNormal\": false,\n      \"isBelowNormal\": false\n    },\n    {\n      \"name\": \"Белок\",\n      \"value\": \"0.15\",\n      \"unit\": \"г/л\",\n      \"referenceMin\": \"0\",\n      \"referenceMax\": \"0.33\",\n      \"isAboveNormal\": false,\n      \"isBelowNormal\": false\n    }\n  ]\n}"
+}

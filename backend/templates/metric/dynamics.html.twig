@@ -1,0 +1,318 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Динамика: {{ name }} - myLab{% endblock %}
+
+{% block nav %}
+    <a href="{{ path('app_dashboard') }}">Главная</a>
+    <a href="{{ path('app_upload') }}">Загрузить</a>
+    <a href="{{ path('app_history') }}">История</a>
+    <a href="{{ path('app_api_logs') }}">Логи API</a>
+    <form method="POST" action="{{ path('auth_logout') }}" style="display: inline;" hx-boost="false">
+        <button type="submit" class="secondary" style="padding: 8px 16px;">Выйти</button>
+    </form>
+{% endblock %}
+
+{% block styles %}
+.chart-container {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.history-table th,
+.history-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.history-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #333;
+}
+
+.history-table tr:hover {
+    background: #f8f9fa;
+}
+
+.value-cell {
+    font-weight: 600;
+    color: #3498db;
+}
+
+.value-above {
+    color: #e74c3c;
+    font-weight: 600;
+}
+
+.value-below {
+    color: #f39c12;
+    font-weight: 600;
+}
+
+.value-normal {
+    color: #27ae60;
+}
+
+.reference-cell {
+    color: #666;
+    font-size: 14px;
+}
+{% endblock %}
+
+{% block body %}
+<div>
+    <div style="margin-bottom: 20px;">
+        <a href="{{ path('app_dashboard') }}" style="color: #3498db; text-decoration: none;">&larr; На главную</a>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2>Динамика показателя: {{ name }}</h2>
+        {% if metrics|length > 0 %}
+        <span style="color: #666;">
+            Единица: {{ metrics[0].unit ?: 'нет' }}
+        </span>
+        {% endif %}
+    </div>
+    
+    {% if metrics|length > 0 %}
+    <div class="chart-container">
+        <div style="height: 300px; width: 100%;">
+            <canvas id="dynamicsChart"></canvas>
+        </div>
+    </div>
+    {% else %}
+    <div class="card" style="text-align: center; padding: 40px; color: #666;">
+        <p>Нет сохраненных данных для этого показателя.</p>
+    </div>
+    {% endif %}
+    
+    {% if metrics|length > 0 %}
+    <div class="card">
+        <h3 style="margin-bottom: 20px;">История измерений</h3>
+        
+        <div style="overflow-x: auto;">
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Название</th>
+                        <th>Значение</th>
+                        <th>Единица</th>
+                        <th>Норма</th>
+                        <th>Статус</th>
+                        <th>Анализ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for metric in metrics|reverse %}
+                    <tr>
+                        <td>
+                            {{ metric.analysis.analysisDate ? metric.analysis.analysisDate|date('d.m.Y') : metric.analysis.createdAt|date('d.m.Y') }}
+                        </td>
+                        <td>
+                            <div id="metric-name-display-{{ metric.id }}" style="display: flex; align-items: center; gap: 8px;">
+                                <span>{{ metric.canonicalName ?? metric.name }}</span>
+                                <button type="button" class="btn secondary" style="padding: 2px 6px; font-size: 12px;" onclick="toggleEdit({{ metric.id }})">✎</button>
+                            </div>
+                            <div id="metric-name-edit-{{ metric.id }}" style="display: none; align-items: center; gap: 8px;">
+                                <input type="text" id="input-{{ metric.id }}" value="{{ metric.canonicalName ?? metric.name }}" list="metric-suggestions" style="padding: 4px; border: 1px solid #ccc; border-radius: 4px; width: 150px;">
+                                <button type="button" class="btn" style="padding: 2px 6px; font-size: 12px; background: #27ae60;" onclick="saveName({{ metric.id }})">✓</button>
+                                <button type="button" class="btn secondary" style="padding: 2px 6px; font-size: 12px;" onclick="toggleEdit({{ metric.id }})">✕</button>
+                            </div>
+                        </td>
+                        <td class="value-cell">
+                            {{ metric.value }}
+                        </td>
+                        <td>{{ metric.unit ?? '—' }}</td>
+                        <td class="reference-cell">
+                            {% if metric.referenceMin and metric.referenceMax %}
+                                {{ metric.referenceMin }} - {{ metric.referenceMax }}
+                            {% elseif metric.referenceMin %}
+                                ≥ {{ metric.referenceMin }}
+                            {% elseif metric.referenceMax %}
+                                ≤ {{ metric.referenceMax }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if metric.isAboveNormal %}
+                                <span class="value-above">↑ Выше нормы</span>
+                            {% elseif metric.isBelowNormal %}
+                                <span class="value-below">↓ Ниже нормы</span>
+                            {% else %}
+                                <span class="value-normal">✓ Норма</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ path('app_analysis_view', {id: metric.analysis.id}) }}" style="color: #3498db; text-decoration: none;">Открыть</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <datalist id="metric-suggestions"></datalist>
+    {% endif %}
+</div>
+
+{% if metrics|length > 0 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+function toggleEdit(id) {
+    const displayDiv = document.getElementById('metric-name-display-' + id);
+    const editDiv = document.getElementById('metric-name-edit-' + id);
+    
+    if (displayDiv.style.display === 'none') {
+        displayDiv.style.display = 'flex';
+        editDiv.style.display = 'none';
+    } else {
+        displayDiv.style.display = 'none';
+        editDiv.style.display = 'flex';
+    }
+}
+
+function saveName(id) {
+    const input = document.getElementById('input-' + id);
+    const newName = input.value.trim();
+    
+    if (!newName) {
+        alert('Название не может быть пустым');
+        return;
+    }
+    
+    fetch('{{ path("app_metric_rename", {id: 0})|e('js') }}'.replace(/(\/metric\/)\d+(\/rename)/, '$1' + id + '$2'), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'name=' + encodeURIComponent(newName)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update display text
+            const displayDiv = document.getElementById('metric-name-display-' + id);
+            displayDiv.querySelector('span').textContent = data.name;
+            toggleEdit(id);
+            
+            // Optional: if the name changed completely, we might want to reload or hide the row
+            // since it no longer belongs to this dynamics view.
+            if (data.name !== '{{ name|escape("js") }}') {
+                const row = displayDiv.closest('tr');
+                row.style.opacity = '0.5';
+                row.title = 'Показатель переименован. Обновите страницу.';
+            }
+        } else {
+            alert(data.error || 'Ошибка при сохранении');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Ошибка при сохранении');
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Autocomplete logic
+    const metricInputs = document.querySelectorAll('input[list="metric-suggestions"]');
+    const datalist = document.getElementById('metric-suggestions');
+    let timeout = null;
+
+    metricInputs.forEach(input => {
+        input.addEventListener('input', function() {
+            clearTimeout(timeout);
+            const query = this.value.trim();
+            
+            if (query.length < 2) {
+                return;
+            }
+
+            timeout = setTimeout(() => {
+                fetch('{{ path("app_metric_suggest") }}?q=' + encodeURIComponent(query))
+                    .then(response => response.json())
+                    .then(data => {
+                        datalist.innerHTML = '';
+                        data.forEach(name => {
+                            const option = document.createElement('option');
+                            option.value = name;
+                            datalist.appendChild(option);
+                        });
+                    })
+                    .catch(err => console.error('Error fetching suggestions:', err));
+            }, 300);
+        });
+    });
+
+    const ctx = document.getElementById('dynamicsChart').getContext('2d');
+    
+    // Prepare data
+    const labels = [];
+    const values = [];
+    
+    {% for metric in metrics %}
+        labels.push('{{ metric.analysis.analysisDate ? metric.analysis.analysisDate|date('d.m.Y') : metric.analysis.createdAt|date('d.m.Y') }}');
+        
+        let val = '{{ metric.value }}'.replace(',', '.').replace(/[^0-9.-]/g, '');
+        values.push(parseFloat(val) || 0);
+    {% endfor %}
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Значение ({{ metrics[0].unit ?? '' }})',
+                    data: values,
+                    borderColor: '#3498db',
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#2980b9',
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    fill: false,
+                    tension: 0.1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Значение'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Дата анализа'
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endif %}
+{% endblock %}

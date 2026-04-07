@@ -1,0 +1,31 @@
+{% if analysis.status == constant('App\\Entity\\Analysis::STATUS_PENDING') %}
+    <div class="status-indicator">
+        <div class="spinner"></div>
+        <div>
+            <div class="status-text">Ожидание в очереди...</div>
+            <div class="status-detail">Ваш файл готовится к обработке</div>
+        </div>
+    </div>
+{% elseif analysis.status == constant('App\\Entity\\Analysis::STATUS_PROCESSING') %}
+    <div class="status-indicator">
+        <div class="spinner"></div>
+        <div>
+            <div class="status-text">Идет распознавание...</div>
+            <div class="status-detail">Извлекаем данные из документа с помощью AI</div>
+        </div>
+    </div>
+{% elseif analysis.status == constant('App\\Entity\\Analysis::STATUS_COMPLETED') %}
+    <div style="text-align: center; padding: 40px;">
+        <div style="font-size: 48px; margin-bottom: 20px;">✅</div>
+        <div class="status-text">Обработка завершена!</div>
+        <div class="status-detail" style="margin: 20px 0;">Данные успешно извлечены из документа</div>
+        <a href="{{ path('app_analysis_view', {id: analysis.id}) }}" class="btn">Просмотреть результат</a>
+    </div>
+{% elseif analysis.status == constant('App\\Entity\\Analysis::STATUS_ERROR') %}
+    <div style="text-align: center; padding: 40px;">
+        <div style="font-size: 48px; margin-bottom: 20px;">❌</div>
+        <div class="status-text">Ошибка обработки</div>
+        <div class="status-detail" style="margin: 20px 0;">Не удалось распознать документ</div>
+        <a href="{{ path('app_upload') }}" class="btn">Загрузить другой файл</a>
+    </div>
+{% endif %}

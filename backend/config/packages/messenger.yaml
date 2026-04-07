@@ -1,0 +1,42 @@
+framework:
+    messenger:
+        failure_transport: failed
+
+        transports:
+            # https://symfony.com/doc/current/messenger.html#transport-configuration
+            async:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    exchange:
+                        name: messages
+                        type: direct
+                        default_publish_routing_key: async
+                    queues:
+                        async: ~
+                retry_strategy:
+                    max_retries: 3
+                    multiplier: 2
+                    delay: 1000
+            
+            # Dedicated OCR queue for better resource management
+            ocr:
+                dsn: '%env(MESSENGER_TRANSPORT_OCR_DSN)%'
+                options:
+                    exchange:
+                        name: ocr
+                        type: direct
+                        default_publish_routing_key: ocr
+                    queues:
+                        ocr:
+                            binding_keys:
+                                - ocr
+                retry_strategy:
+                    max_retries: 3
+                    multiplier: 2
+                    delay: 5000  # Longer delay for OCR (5s base)
+
+            failed: 'amqp://guest:guest@rabbitmq:5672/%2f/failed'
+
+        routing:
+            # Route all OCR jobs to the dedicated async OCR queue (RabbitMQ)
+            'App\Message\OCRJob': ocr

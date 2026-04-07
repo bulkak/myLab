@@ -1,0 +1,606 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Результат анализа - myLab{% endblock %}
+
+{% block nav %}
+    <a href="{{ path('app_dashboard') }}">Главная</a>
+    <a href="{{ path('app_history') }}">История</a>
+    <a href="{{ path('app_api_logs') }}">Логи API</a>
+    <form method="POST" action="{{ path('auth_logout') }}" style="display: inline;" hx-boost="false">
+        <button type="submit" class="secondary" style="padding: 8px 16px;">Выйти</button>
+    </form>
+{% endblock %}
+
+{% block styles %}
+.ocr-comparison {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.ocr-section {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    background: #f9f9f9;
+}
+
+.ocr-section h3 {
+    margin-top: 0;
+    color: #333;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+}
+
+.ocr-text {
+    max-height: 300px;
+    overflow-y: auto;
+    background: white;
+    padding: 15px;
+    border-radius: 4px;
+    border: 1px solid #eee;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #555;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.refine-button {
+    display: inline-block;
+    margin-top: 15px;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.refine-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.refine-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.metrics-section {
+    margin-top: 30px;
+}
+
+.metrics-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.metrics-table thead {
+    background: #f0f0f0;
+    border-bottom: 2px solid #ddd;
+}
+
+.metrics-table th,
+.metrics-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.metrics-table th {
+    font-weight: 600;
+    color: #333;
+}
+
+.metric-name {
+    font-weight: 600;
+    color: #333;
+}
+
+.metric-value {
+    color: #3498db;
+    font-weight: 500;
+}
+
+.normal-range {
+    color: #27ae60;
+}
+
+.abnormal-high {
+    color: #e74c3c;
+    font-weight: 600;
+}
+
+.abnormal-low {
+    color: #e67e22;
+    font-weight: 600;
+}
+
+.spinner-inline {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-left: 10px;
+    vertical-align: middle;
+}
+
+/* Model selector styles */
+.model-selector {
+    background: #f0f4f8;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.model-selector h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.model-select {
+    width: 100%;
+    padding: 10px 15px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    background: white;
+}
+
+.model-select:focus {
+    border-color: #3498db;
+    outline: none;
+}
+
+.model-info {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: white;
+    border-radius: 4px;
+    border-left: 3px solid #3498db;
+}
+
+.reprocess-button {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.reprocess-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(52, 152, 219, 0.4);
+}
+
+.reprocess-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.reprocess-status {
+    margin-top: 15px;
+    padding: 12px;
+    border-radius: 4px;
+    display: none;
+}
+
+.reprocess-status.success {
+    display: block;
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.reprocess-status.error {
+    display: block;
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+@media (max-width: 1024px) {
+    .ocr-comparison {
+        grid-template-columns: 1fr;
+    }
+}
+{% endblock %}
+
+{% block body %}
+<div style="max-width: 1200px; margin: 0 auto;">
+    <h2 style="margin-bottom: 30px;">Результат распознавания анализа</h2>
+    
+    {% if analysis.status == constant('App\\Entity\\Analysis::STATUS_COMPLETED') %}
+        <!-- OCR Results Comparison -->
+        <div class="ocr-comparison">
+            {% if analysis.ocrRawText %}
+                <div class="ocr-section">
+                    <h3>🤖 Результат распознавания (Сырой JSON)</h3>
+                    <div class="ocr-text">{{ analysis.ocrRawText|raw }}</div>
+                </div>
+            {% endif %}
+            
+            <!-- Show debug images if available -->
+            {% if analysis.debugImagesPaths %}
+            <div class="ocr-section">
+                <h3 style="margin-top: 0; color: #333;">📸 Изображение документа</h3>
+                <p style="color: #666; font-size: 14px; margin: 10px 0;">Вот как модель видела документ:</p>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                    {% set debugFilenames = analysis.debugImagesPathsArray %}
+                    {% if debugFilenames|length > 0 %}
+                        {% for filename in debugFilenames %}
+                        <div style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden; background: white;">
+                            <img src="{{ path('app_upload_debug_image', {filename: filename}) }}" style="width: 100%; height: auto; display: block;" alt="Debug image" loading="lazy">
+                            <div style="padding: 8px; font-size: 12px; color: #666; border-top: 1px solid #eee; word-break: break-all;">
+                                {{ filename }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Model Selector for Reprocessing -->
+        {% if available_models is defined and available_models|length > 0 %}
+        <div class="card model-selector" id="reprocess-section">
+            <h4>🔄 Перераспознать с другой моделью</h4>
+            <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                Выберите другую модель OCR для сравнения результатов или улучшения точности распознавания.
+            </p>
+            
+            <select id="model-select" class="model-select" name="model">
+                <option value="">— Выберите модель —</option>
+                {% for model in available_models %}
+                    <option value="{{ model.name }}" 
+                            data-ram="{{ model.ram_gb }}"
+                            data-desc="{{ model.description }}">
+                        {{ model.label }} ({{ model.ram_gb }} GB RAM)
+                    </option>
+                {% endfor %}
+            </select>
+            
+            <div id="model-info" class="model-info" style="display: none;">
+                <strong id="model-name"></strong><br>
+                <span id="model-description"></span><br>
+                <small>Требуется RAM: <span id="model-ram"></span> GB</small>
+            </div>
+            
+            <button id="reprocess-btn" class="reprocess-button" 
+                    hx-post="{{ path('app_analysis_reprocess', {id: analysis.id}) }}"
+                    hx-swap="innerHTML"
+                    hx-target="#reprocess-status"
+                    hx-include="#model-select"
+                    hx-headers='{"Accept": "application/json"}'
+                    disabled>
+                Перераспознать документ
+            </button>
+            
+            <div id="reprocess-status" class="reprocess-status"></div>
+        </div>
+        {% endif %}
+
+        <!-- Extracted Metrics -->
+        {% if analysis.metrics.count > 0 %}
+            <div class="card metrics-section">
+                <h3>Извлеченные показатели</h3>
+                {% if not analysis.isConfirmed %}
+                    <form action="{{ path('app_analysis_confirm', {id: analysis.id}) }}" method="POST" id="confirm-form">
+                {% endif %}
+                <table class="metrics-table">
+                    <thead>
+                        <tr>
+                            <th>Показатель</th>
+                            <th>Значение</th>
+                            <th>Единица</th>
+                            <th>Норма</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for metric in analysis.metrics %}
+                            <tr>
+                                <td class="metric-name">
+                                    {% if not analysis.isConfirmed %}
+                                        <input type="text" name="metrics[{{ metric.id }}]" value="{{ metric.canonicalName ?? metric.name }}" class="metric-name-input" list="metric-suggestions" autocomplete="off" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; font-size: 14px;">
+                                    {% else %}
+                                        {{ metric.canonicalName ?? metric.name }}
+                                    {% endif %}
+                                </td>
+                                <td class="metric-value">{{ metric.value }}</td>
+                                <td>{{ metric.unit ?? '—' }}</td>
+                                <td class="normal-range">
+                                    {% if metric.referenceMin and metric.referenceMax %}
+                                        {{ metric.referenceMin }} - {{ metric.referenceMax }}
+                                    {% elseif metric.referenceMin %}
+                                        ≥ {{ metric.referenceMin }}
+                                    {% elseif metric.referenceMax %}
+                                        ≤ {{ metric.referenceMax }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if metric.isAboveNormal %}
+                                        <span class="abnormal-high">↑ Выше нормы</span>
+                                    {% elseif metric.isBelowNormal %}
+                                        <span class="abnormal-low">↓ Ниже нормы</span>
+                                    {% else %}
+                                        ✓ Норма
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% if not analysis.isConfirmed %}
+                    </form>
+                    <datalist id="metric-suggestions"></datalist>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        <div style="margin-top: 30px; display: flex; gap: 10px;">
+            {% if not analysis.isConfirmed %}
+                <button type="submit" form="confirm-form" class="btn" style="background-color: #27ae60;">Сохранить результаты в историю</button>
+            {% endif %}
+            <a href="{{ path('app_history') }}" class="btn secondary">← К истории</a>
+            <a href="{{ path('app_upload') }}" class="btn">Загрузить еще</a>
+        </div>
+
+    {% elseif analysis.status == constant('App\\Entity\\Analysis::STATUS_PROCESSING') %}
+        <div class="card" style="text-align: center; padding: 60px 20px;">
+            <div style="font-size: 48px; margin-bottom: 20px; animation: spin 1s linear infinite;">⏳</div>
+            <div class="status-text">Идет обработка...</div>
+            <div class="status-detail">Пожалуйста, подождите</div>
+            <meta http-equiv="refresh" content="3">
+        </div>
+    {% elseif analysis.status == constant('App\\Entity\\Analysis::STATUS_PENDING') %}
+        <div class="card" style="text-align: center; padding: 60px 20px;">
+            <div style="font-size: 48px; margin-bottom: 20px;">⏳</div>
+            <div class="status-text">В очереди на обработку</div>
+            <div class="status-detail">Документ скоро будет обработан</div>
+            <meta http-equiv="refresh" content="3">
+        </div>
+    {% else %}
+        <div class="card" style="text-align: center; padding: 60px 20px;">
+            <div style="font-size: 48px; margin-bottom: 20px;">❌</div>
+            <div class="status-text">Ошибка обработки</div>
+            <div class="status-detail">
+                {% if analysis.errorMessage %}
+                    {{ analysis.errorMessage }}
+                {% else %}
+                    Не удалось распознать документ. Попробуйте загрузить другой файл или выбрать другую модель.
+                {% endif %}
+            </div>
+            
+            <!-- Show debug images if available -->
+            {% if analysis.debugImagesPaths %}
+            <div style="margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px;">
+                <h5 style="margin-top: 0; color: #333;">📸 Изображения для отладки</h5>
+                <p style="color: #666; font-size: 14px; margin: 10px 0;">Вот как модель видела документ:</p>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                    {% set debugFilenames = analysis.debugImagesPathsArray %}
+                    {% if debugFilenames|length > 0 %}
+                        {% for filename in debugFilenames %}
+                        <div style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden; background: white;">
+                            <img src="{{ path('app_upload_debug_image', {filename: filename}) }}" style="width: 100%; height: auto; display: block;" alt="Debug image" loading="lazy">
+                            <div style="padding: 8px; font-size: 12px; color: #666; border-top: 1px solid #eee; word-break: break-all;">
+                                {{ filename }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Show model selector even on error -->
+            {% if available_models is defined and available_models|length > 0 %}
+            <div style="margin-top: 30px; text-align: left; max-width: 500px; margin-left: auto; margin-right: auto;">
+                <div class="model-selector">
+                    <h4>Попробовать другую модель</h4>
+                    <select id="model-select-error" class="model-select" name="model">
+                        <option value="">— Выберите модель —</option>
+                        {% for model in available_models %}
+                            <option value="{{ model.name }}">{{ model.label }}</option>
+                        {% endfor %}
+                    </select>
+                    <button class="reprocess-button" 
+                            hx-post="{{ path('app_analysis_reprocess', {id: analysis.id}) }}"
+                            hx-swap="innerHTML"
+                            hx-target="#reprocess-status-error"
+                            hx-include="#model-select-error"
+                            hx-headers='{"Accept": "application/json"}'>
+                        Попробовать снова
+                    </button>
+                    <div id="reprocess-status-error" class="reprocess-status"></div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div style="margin-top: 30px;">
+                <a href="{{ path('app_upload') }}" class="btn">Загрузить файл</a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Model selector change handler
+    const modelSelect = document.getElementById('model-select');
+    const reprocessBtn = document.getElementById('reprocess-btn');
+    const modelInfo = document.getElementById('model-info');
+    const modelName = document.getElementById('model-name');
+    const modelDescription = document.getElementById('model-description');
+    const modelRam = document.getElementById('model-ram');
+    
+    if (modelSelect) {
+        modelSelect.addEventListener('change', function() {
+            const selectedOption = modelSelect.options[modelSelect.selectedIndex];
+            const value = selectedOption.value;
+            
+            if (value) {
+                // Enable button
+                reprocessBtn.disabled = false;
+                
+                // Show model info
+                modelInfo.style.display = 'block';
+                modelName.textContent = selectedOption.text;
+                modelDescription.textContent = selectedOption.getAttribute('data-desc');
+                modelRam.textContent = selectedOption.getAttribute('data-ram');
+            } else {
+                reprocessBtn.disabled = true;
+                modelInfo.style.display = 'none';
+            }
+        });
+    }
+    
+    // Error case model selector handler
+    const modelSelectError = document.getElementById('model-select-error');
+    if (modelSelectError) {
+        const reprocessBtnError = document.querySelector('[hx-target="#reprocess-status-error"]');
+        if (reprocessBtnError) {
+            reprocessBtnError.addEventListener('htmx:beforeRequest', function() {
+                if (!modelSelectError.value) {
+                    alert('Пожалуйста, выберите модель');
+                    return false;
+                }
+                this.disabled = true;
+                this.innerHTML = 'Отправка в очередь... <span class="spinner-inline"></span>';
+            });
+            
+            reprocessBtnError.addEventListener('htmx:afterRequest', function(event) {
+                const statusDiv = document.getElementById('reprocess-status-error');
+                try {
+                    const response = JSON.parse(event.detail.xhr.response);
+                    if (response.success) {
+                        statusDiv.className = 'reprocess-status success';
+                        statusDiv.innerHTML = '✓ ' + response.message + '<br>Используемая модель: ' + (response.model || 'по умолчанию');
+                        
+                        // Redirect to status page after a delay
+                        setTimeout(() => {
+                            window.location.href = '{{ path("app_upload_status", {id: analysis.id}) }}';
+                        }, 2000);
+                    } else {
+                        statusDiv.className = 'reprocess-status error';
+                        statusDiv.innerHTML = '❌ ' + (response.error || 'Ошибка при перераспознавании');
+                        this.disabled = false;
+                        this.innerHTML = 'Попробовать снова';
+                    }
+                } catch (e) {
+                    statusDiv.className = 'reprocess-status success';
+                    statusDiv.innerHTML = '✓ Документ отправлен на перераспознавание. Перенаправление...';
+                    setTimeout(() => location.reload(), 2000);
+                }
+            });
+            
+            reprocessBtnError.addEventListener('htmx:responseError', function() {
+                const statusDiv = document.getElementById('reprocess-status-error');
+                statusDiv.className = 'reprocess-status error';
+                statusDiv.innerHTML = '❌ Ошибка сервера при перераспознавании';
+                this.disabled = false;
+                this.innerHTML = 'Попробовать снова';
+            });
+        }
+    }
+    
+    // HTMX event handlers for reprocess button
+    if (reprocessBtn) {
+        reprocessBtn.addEventListener('htmx:beforeRequest', function() {
+            reprocessBtn.disabled = true;
+            reprocessBtn.innerHTML = 'Отправка в очередь... <span class="spinner-inline"></span>';
+        });
+        
+        reprocessBtn.addEventListener('htmx:afterRequest', function(event) {
+            const statusDiv = document.getElementById('reprocess-status');
+            try {
+                const response = JSON.parse(event.detail.xhr.response);
+                if (response.success) {
+                    statusDiv.className = 'reprocess-status success';
+                    statusDiv.innerHTML = '✓ ' + response.message + '<br>Используемая модель: ' + (response.model || 'по умолчанию');
+                    
+                    // Redirect to status page after a delay
+                    setTimeout(() => {
+                        window.location.href = '{{ path("app_upload_status", {id: analysis.id}) }}';
+                    }, 2000);
+                } else {
+                    statusDiv.className = 'reprocess-status error';
+                    statusDiv.innerHTML = '❌ ' + (response.error || 'Ошибка при перераспознавании');
+                    reprocessBtn.disabled = false;
+                    reprocessBtn.innerHTML = 'Перераспознать документ';
+                }
+            } catch (e) {
+                // Non-JSON response (HTML redirect)
+                statusDiv.className = 'reprocess-status success';
+                statusDiv.innerHTML = '✓ Документ отправлен на перераспознавание. Перенаправление...';
+                setTimeout(() => location.reload(), 2000);
+            }
+        });
+        
+        reprocessBtn.addEventListener('htmx:responseError', function() {
+            const statusDiv = document.getElementById('reprocess-status');
+            statusDiv.className = 'reprocess-status error';
+            statusDiv.innerHTML = '❌ Ошибка сервера при перераспознавании';
+            reprocessBtn.disabled = false;
+            reprocessBtn.innerHTML = 'Перераспознать документ';
+        });
+    }
+
+    // Autocomplete for metric names
+    const metricInputs = document.querySelectorAll('.metric-name-input');
+    if (metricInputs.length > 0) {
+        const datalist = document.getElementById('metric-suggestions');
+        let timeout = null;
+
+        metricInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                clearTimeout(timeout);
+                const query = this.value.trim();
+                
+                if (query.length < 2) {
+                    return;
+                }
+
+                timeout = setTimeout(() => {
+                    fetch('{{ path("app_metric_suggest") }}?q=' + encodeURIComponent(query))
+                        .then(response => response.json())
+                        .then(data => {
+                            datalist.innerHTML = '';
+                            data.forEach(name => {
+                                const option = document.createElement('option');
+                                option.value = name;
+                                datalist.appendChild(option);
+                            });
+                        })
+                        .catch(err => console.error('Error fetching suggestions:', err));
+                }, 300);
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

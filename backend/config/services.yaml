@@ -1,0 +1,84 @@
+# This file is the entry point to configure your own services.
+# Files in the packages/ subdirectory configure your dependencies.
+
+# Put parameters here that don't need to change on each machine where the app is deployed
+# https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
+parameters:
+    upload_dir: '%env(UPLOAD_DIR)%'
+    max_upload_size: '%env(int:MAX_UPLOAD_SIZE)%'
+    totp_issuer: '%env(TOTP_ISSUER)%'
+    # PDF → PNG для OCR: см. backend/docs/pdf-rasterization.md
+    pdf_raster_use_cropbox: false
+    pdf_raster_engine: 'pdftoppm'
+    pdf_raster_fallback_engine: 'pdftocairo'
+    gigachat_auth_key: '%env(GIGACHAT_AUTH_KEY)%'
+    gigachat_model: '%env(GIGACHAT_MODEL)%'
+    openai_api_key: '%env(OPENAI_API_KEY)%'
+    openai_api_url: '%env(OPENAI_API_URL)%'
+    yandex_cloud_api_key: '%env(YANDEX_CLOUD_API_KEY)%'
+    yandex_cloud_folder: '%env(YANDEX_CLOUD_FOLDER)%'
+
+services:
+    # default configuration for services in *this* file
+    _defaults:
+        autowire: true      # Automatically injects dependencies in your services.
+        autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+
+    # makes classes in src/ available to be used as services
+    # this creates a service per class whose id is the fully-qualified class name
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Kernel.php'
+
+    # add more service definitions when explicit configuration is needed
+    # please note that last definitions always *replace* previous ones
+
+    # Contract interfaces binding
+    _instanceof:
+        App\Service\Contract\OcrEngineInterface:
+            tags: ['app.ocr_engine']
+
+    App\Service\OcrEngine\GigaChatOcrEngine:
+        arguments:
+            $authKey: '%gigachat_auth_key%'
+            $defaultModel: '%gigachat_model%'
+
+    App\Service\OcrEngine\OpenAiOcrEngine:
+        arguments:
+            $apiKey: '%openai_api_key%'
+            $apiUrl: '%openai_api_url%'
+            $defaultModel: 'gpt-4o'
+
+    App\Service\OcrEngine\YandexCloudOcrEngine:
+        arguments:
+            $apiKey: '%yandex_cloud_api_key%'
+            $folderId: '%yandex_cloud_folder%'
+            $defaultModel: 'qwen3.5-35b-a3b-fp8/latest'
+
+    App\Service\Contract\DocumentConverterInterface:
+        class: App\Service\DocumentConverter\PopplerPdfConverter
+        arguments:
+            $dpi: 250
+            $imageFormat: 'png'
+            $useCropbox: '%pdf_raster_use_cropbox%'
+            $rasterEngine: '%pdf_raster_engine%'
+            $fallbackRasterEngine: '%pdf_raster_fallback_engine%'
+
+    App\Service\Contract\PromptBuilderInterface:
+        class: App\Service\Prompt\MedicalAnalysisPromptBuilder
+
+    # New OcrManager - Main entry point for OCR operations
+    App\Service\OcrManager:
+        arguments:
+            $ocrEngines: !tagged_iterator app.ocr_engine
+            $pdfConverter: '@App\Service\Contract\DocumentConverterInterface'
+            $promptBuilder: '@App\Service\Contract\PromptBuilderInterface'
+            $uploadDir: '%upload_dir%'
+            $defaultModel: 'qwen3.5-35b-a3b-fp8/latest'
+
+    App\Service\TOTPService:
+        arguments:
+            $issuer: '%totp_issuer%'

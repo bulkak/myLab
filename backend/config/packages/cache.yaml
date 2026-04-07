@@ -1,0 +1,20 @@
+framework:
+    cache:
+        # Unique name of your app: used to compute stable namespaces for cache keys.
+        prefix_seed: medical_analyzer
+
+        # The "app" cache stores the contents of the cache adapters
+        app: cache.adapter.redis
+        default_redis_provider: '%env(REDIS_URL)%'
+
+        # Namespaced pools for specific cache usage
+        pools:
+            # Cache for user sessions
+            cache.sessions:
+                adapter: cache.adapter.redis
+                public: false
+            # Cache for TOTP secrets during registration
+            cache.totp:
+                adapter: cache.adapter.redis
+                public: true
+                default_lifetime: 600

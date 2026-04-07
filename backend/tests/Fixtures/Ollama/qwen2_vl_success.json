@@ -1,0 +1,4 @@
+{
+  "model": "qwen2-vl:2b",
+  "response": "{\n  \"title\": \"Общий анализ крови\",\n  \"analysisDate\": \"2024-03-15\",\n  \"metrics\": [\n    {\n      \"name\": \"Гемоглобин\",\n      \"value\": \"142\",\n      \"unit\": \"г/л\",\n      \"referenceMin\": \"130\",\n      \"referenceMax\": \"170\",\n      \"isAboveNormal\": false,\n      \"isBelowNormal\": false\n    },\n    {\n      \"name\": \"Лейкоциты (WBC)\",\n      \"value\": \"7.2\",\n      \"unit\": \"×10^9/л\",\n      \"referenceMin\": \"4.0\",\n      \"referenceMax\": \"9.0\",\n      \"isAboveNormal\": false,\n      \"isBelowNormal\": false\n    },\n    {\n      \"name\": \"Глюкоза\",\n      \"value\": \"5.4\",\n      \"unit\": \"ммоль/л\",\n      \"referenceMin\": \"3.9\",\n      \"referenceMax\": \"6.1\",\n      \"isAboveNormal\": false,\n      \"isBelowNormal\": false\n    }\n  ]\n}"
+}

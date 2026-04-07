@@ -1,0 +1,216 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Загрузить анализ - myLab{% endblock %}
+
+{% block nav %}
+    <a href="{{ path('app_dashboard') }}">Главная</a>
+    <a href="{{ path('app_history') }}">История</a>
+    <a href="{{ path('app_api_logs') }}">Логи API</a>
+    <form method="POST" action="{{ path('auth_logout') }}" style="display: inline;" hx-boost="false">
+        <button type="submit" class="secondary" style="padding: 8px 16px;">Выйти</button>
+    </form>
+{% endblock %}
+
+{% block styles %}
+.drop-zone {
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 40px 20px;
+    text-align: center;
+    background: #fafafa;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+    border-color: #3498db;
+    background: #f0f8ff;
+}
+
+.drop-zone-text {
+    font-size: 18px;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.drop-zone-hint {
+    font-size: 14px;
+    color: #999;
+}
+
+.progress {
+    display: none;
+    margin-top: 20px;
+}
+
+.progress.active {
+    display: block;
+}
+
+.progress-bar {
+    height: 8px;
+    background: #eee;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: #3498db;
+    width: 0%;
+    transition: width 0.3s;
+}
+
+.progress-text {
+    text-align: center;
+    margin-top: 8px;
+    color: #666;
+}
+{% endblock %}
+
+{% block body %}
+<div style="max-width: 600px; margin: 0 auto;">
+    <h2 style="margin-bottom: 30px;">Загрузить медицинский анализ</h2>
+    
+    {% if error is defined and error %}
+        <div class="error">{{ error }}</div>
+    {% endif %}
+    
+    <div class="card">
+        <form id="upload-form" method="POST" action="{{ path('app_upload_process') }}" enctype="multipart/form-data"
+              hx-post="{{ path('app_upload_process') }}"
+              hx-encoding="multipart/form-data"
+              hx-target="#upload-result">
+            
+            <div id="drop-zone" class="drop-zone">
+                <input type="file" id="file-input" name="file" accept=".jpg,.jpeg,.png,.gif,.webp,.tiff,.tif,.bmp,.pdf" 
+                       style="display: none;" required>
+                <div class="drop-zone-text">
+                    📎 Перетащите файл сюда или нажмите для выбора
+                </div>
+                <div class="drop-zone-hint">
+                    Поддерживаемые форматы: JPEG, PNG, GIF, WebP, TIFF, BMP, PDF<br>
+                    Максимальный размер: {{ (maxUploadSize / 1024 / 1024)|round }} MB
+                </div>
+            </div>
+            
+            <div id="progress" class="progress">
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" id="progress-fill"></div>
+                </div>
+                <div class="progress-text" id="progress-text">Загрузка...</div>
+            </div>
+            
+            <div id="upload-result"></div>
+        </form>
+    </div>
+    
+    <div style="margin-top: 20px;">
+        <a href="{{ path('app_dashboard') }}" class="btn secondary">← На главную</a>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const uploadForm = document.getElementById('upload-form');
+    const progress = document.getElementById('progress');
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('progress-text');
+    
+    // Click to select file
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    // File selected
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            startUpload(e.target.files[0]);
+        }
+    });
+    
+    // Drag and drop
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('drag-over');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            startUpload(files[0]);
+        }
+    });
+    
+    function startUpload(file) {
+        // Show progress
+        dropZone.style.display = 'none';
+        progress.classList.add('active');
+        progressFill.style.width = '50%';
+        progressText.textContent = 'Загрузка файла...';
+        
+        // Submit form
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        fetch('{{ path('app_upload_process') }}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(async response => {
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Ошибка загрузки');
+                }
+                return data;
+            } else {
+                throw new Error('Внутренняя ошибка сервера (Код: ' + response.status + ')');
+            }
+        })
+        .then(data => {
+            if (data.success) {
+                progressFill.style.width = '100%';
+                progressText.textContent = 'Загрузка завершена! Переходим...';
+                
+                // Redirect to status page
+                window.location.href = '{{ path('app_upload_status', {id: 'ID'}) }}'.replace('ID', data.analysisId);
+            } else {
+                showError(data.error || 'Ошибка загрузки');
+            }
+        })
+        .catch(error => {
+            showError(error.message);
+        });
+    }
+    
+    function showError(message) {
+        progress.style.display = 'none';
+        dropZone.style.display = 'block';
+        fileInput.value = '';
+        
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error';
+        errorDiv.textContent = message;
+        
+        const resultDiv = document.getElementById('upload-result');
+        resultDiv.innerHTML = '';
+        resultDiv.appendChild(errorDiv);
+    }
+});
+</script>
+{% endblock %}

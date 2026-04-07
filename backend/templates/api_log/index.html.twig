@@ -1,0 +1,119 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Логи внешних API{% endblock %}
+
+{% block nav %}
+    <a href="{{ path('app_dashboard') }}">Главная</a>
+    <a href="{{ path('app_upload') }}">Загрузить</a>
+    <a href="{{ path('app_history') }}">История</a>
+    <a href="{{ path('app_api_logs') }}">Логи API</a>
+    <form method="POST" action="{{ path('auth_logout') }}" style="display: inline;" hx-boost="false">
+        <button type="submit" class="secondary" style="padding: 8px 16px;">Выйти</button>
+    </form>
+{% endblock %}
+
+{% block styles %}
+.log-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.log-table th,
+.log-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.log-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #333;
+}
+
+.log-table tr:hover {
+    background: #f8f9fa;
+}
+
+.status-success {
+    color: #27ae60;
+    font-weight: 600;
+}
+
+.status-error {
+    color: #e74c3c;
+    font-weight: 600;
+}
+{% endblock %}
+
+{% block body %}
+<div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2>Логи взаимодействия с внешними API</h2>
+    </div>
+
+    <div class="card">
+        <div style="overflow-x: auto;">
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Провайдер</th>
+                        <th>Эндпоинт</th>
+                        <th>Статус</th>
+                        <th>Время (с)</th>
+                        <th>Анализ</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td style="color: #666;">
+                            {{ log.createdAt|date('Y-m-d H:i:s') }}
+                        </td>
+                        <td style="font-weight: 600;">
+                            {{ log.provider }}
+                        </td>
+                        <td style="color: #666; font-family: monospace;">
+                            {{ log.endpoint }}
+                        </td>
+                        <td>
+                            {% if log.statusCode == 200 %}
+                                <span class="status-success">
+                                    {{ log.statusCode }}
+                                </span>
+                            {% else %}
+                                <span class="status-error">
+                                    {{ log.statusCode|default('Ошибка') }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td style="color: #666;">
+                            {{ log.durationSeconds|number_format(2) }}
+                        </td>
+                        <td>
+                            {% if log.analysis %}
+                                <a href="{{ path('app_analysis_view', {id: log.analysis.id}) }}" style="color: #3498db; text-decoration: none;">#{{ log.analysis.id }}</a>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ path('app_api_log_show', {id: log.id}) }}" style="color: #3498db; text-decoration: none;">Подробнее</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: #666; padding: 20px;">
+                            Логов пока нет
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

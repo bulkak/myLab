@@ -1,0 +1,269 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ metricName }} - История - myLab{% endblock %}
+
+{% block nav %}
+    <a href="{{ path('app_dashboard') }}">Главная</a>
+    <a href="{{ path('app_upload') }}">Загрузить</a>
+    <a href="{{ path('app_history') }}">История</a>
+    <form method="POST" action="{{ path('auth_logout') }}" style="display: inline;" hx-boost="false">
+        <button type="submit" class="secondary" style="padding: 8px 16px;">Выйти</button>
+    </form>
+{% endblock %}
+
+{% block styles %}
+.chart-container {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.history-table th,
+.history-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.history-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+}
+
+.history-table tr:hover {
+    background: #f8f9fa;
+}
+
+.value-cell {
+    font-weight: 600;
+}
+
+.value-above {
+    color: #e74c3c;
+}
+
+.value-below {
+    color: #f39c12;
+}
+
+.value-normal {
+    color: #27ae60;
+}
+
+.reference-cell {
+    color: #666;
+    font-size: 14px;
+}
+{% endblock %}
+
+{% block body %}
+<div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2>{{ metricName }}</h2>
+        {% if metrics|length > 0 %}
+        <span style="color: #666;">
+            Единица: {{ metrics[0].unit ?: 'нет' }}
+        </span>
+        {% endif %}
+    </div>
+    
+    {% if chartData|length > 0 %}
+    <div class="chart-container">
+        <h3 style="margin-bottom: 15px;">Динамика показателя</h3>
+        <div id="chart" style="height: 300px;"></div>
+        
+        {% if referenceRange.min or referenceRange.max %}
+        <div style="margin-top: 10px; text-align: center; color: #666; font-size: 14px;">
+            Референс: 
+            {% if referenceRange.min and referenceRange.max %}
+                {{ referenceRange.min }} - {{ referenceRange.max }}
+            {% elseif referenceRange.max %}
+                &lt; {{ referenceRange.max }}
+            {% elseif referenceRange.min %}
+                &gt; {{ referenceRange.min }}
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    <div class="card">
+        <h3 style="margin-bottom: 20px;">История измерений</h3>
+        
+        <div style="overflow-x: auto;">
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Значение</th>
+                        <th>Референс</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for metric in metrics %}
+                    <tr>
+                        <td>
+                            {% if metric.analysis.analysisDate %}
+                                {{ metric.analysis.analysisDate|date('d.m.Y') }}
+                            {% else %}
+                                {{ metric.analysis.createdAt|date('d.m.Y H:i') }}
+                            {% endif %}
+                        </td>
+                        <td class="value-cell {% if metric.aboveNormal %}value-above{% elseif metric.belowNormal %}value-below{% else %}value-normal{% endif %}">
+                            {{ metric.value }}
+                            {% if metric.aboveNormal %}↑{% endif %}
+                            {% if metric.belowNormal %}↓{% endif %}
+                        </td>
+                        <td class="reference-cell">
+                            {% if metric.referenceMin and metric.referenceMax %}
+                                {{ metric.referenceMin }} - {{ metric.referenceMax }}
+                            {% elseif metric.referenceMax %}
+                                &lt; {{ metric.referenceMax }}
+                            {% elseif metric.referenceMin %}
+                                &gt; {{ metric.referenceMin }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if metric.aboveNormal %}
+                                <span style="color: #e74c3c;">Выше нормы</span>
+                            {% elseif metric.belowNormal %}
+                                <span style="color: #f39c12;">Ниже нормы</span>
+                            {% else %}
+                                <span style="color: #27ae60;">В норме</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ path('app_analysis_view', {id: metric.analysis.id}) }}">Просмотр анализа</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div style="margin-top: 20px;">
+        <a href="{{ path('app_history_search') }}" class="btn secondary">← Назад к поиску</a>
+    </div>
+</div>
+
+{% if chartData|length > 0 %}
+<!-- Chart.js for visualization -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('chart').getContext('2d');
+    const data = {{ chartData|json_encode|raw }};
+    
+    const labels = data.map(d => d.dateDisplay);
+    const values = data.map(d => d.value);
+    const referenceMin = {{ referenceRange.min|json_encode|raw }};
+    const referenceMax = {{ referenceRange.max|json_encode|raw }};
+    
+    const datasets = [{
+        label: '{{ metricName }}',
+        data: values,
+        borderColor: '#3498db',
+        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+        borderWidth: 2,
+        pointRadius: 5,
+        pointBackgroundColor: data.map(d => {
+            if (d.isAboveNormal) return '#e74c3c';
+            if (d.isBelowNormal) return '#f39c12';
+            return '#27ae60';
+        }),
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        fill: true,
+        tension: 0.3
+    }];
+    
+    // Add reference lines if available
+    if (referenceMin || referenceMax) {
+        if (referenceMin) {
+            datasets.push({
+                label: 'Мин. референс',
+                data: Array(labels.length).fill(parseFloat(referenceMin)),
+                borderColor: '#f39c12',
+                borderDash: [5, 5],
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: false
+            });
+        }
+        if (referenceMax) {
+            datasets.push({
+                label: 'Макс. референс',
+                data: Array(labels.length).fill(parseFloat(referenceMax)),
+                borderColor: '#e74c3c',
+                borderDash: [5, 5],
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: false
+            });
+        }
+    }
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            label += context.parsed.y;
+                            {% if metrics|length > 0 %}
+                            if (context.datasetIndex === 0) {
+                                label += ' {{ metrics[0].unit }}';
+                            }
+                            {% endif %}
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: '{% if metrics|length > 0 %}{{ metrics[0].unit }}{% endif %}'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Дата'
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endif %}
+{% endblock %}

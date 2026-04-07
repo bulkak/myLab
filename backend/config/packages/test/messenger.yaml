@@ -1,0 +1,13 @@
+# Test messenger configuration - use in-memory transport for testing
+framework:
+    messenger:
+        transports:
+            # In-memory transport for testing - no real RabbitMQ needed
+            async:
+                dsn: 'in-memory://'
+            
+            ocr:
+                dsn: 'in-memory://'
+            
+            failed:
+                dsn: 'in-memory://'

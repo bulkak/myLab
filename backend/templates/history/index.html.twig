@@ -1,0 +1,255 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}История анализов - myLab{% endblock %}
+
+{% block nav %}
+    <a href="{{ path('app_dashboard') }}">Главная</a>
+    <a href="{{ path('app_upload') }}">Загрузить</a>
+    <a href="{{ path('app_history') }}">История</a>
+    <a href="{{ path('app_api_logs') }}">Логи API</a>
+    <form method="POST" action="{{ path('auth_logout') }}" style="display: inline;" hx-boost="false">
+        <button type="submit" class="secondary" style="padding: 8px 16px;">Выйти</button>
+    </form>
+{% endblock %}
+
+{% block styles %}
+.analysis-list {
+    margin-top: 20px;
+}
+
+.analysis-item {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: box-shadow 0.3s;
+}
+
+.analysis-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.analysis-info h4 {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+}
+
+.analysis-info .date {
+    color: #666;
+    font-size: 14px;
+}
+
+.analysis-info .metrics-count {
+    color: #999;
+    font-size: 14px;
+    margin-top: 5px;
+}
+
+.analysis-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-completed {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-processing {
+    background: #cce5ff;
+    color: #004085;
+}
+
+.status-error {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.search-box {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.search-box input {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+{% endblock %}
+
+{% block body %}
+<div>
+    <h2 style="margin-bottom: 20px;">История анализов</h2>
+    
+    <div class="card">
+        <div class="search-box">
+            <input type="text" 
+                   id="metric-search" 
+                   placeholder="Поиск по названию показателя..."
+                   autocomplete="off"
+                   list="metric-suggestions">
+            <datalist id="metric-suggestions">
+                {% for name in metricNames %}
+                <option value="{{ name.name }}">
+                {% endfor %}
+            </datalist>
+            <button onclick="searchMetric()" class="btn">Найти</button>
+        </div>
+    </div>
+
+    <!-- Вкладки -->
+    <div style="margin-bottom: 20px; border-bottom: 1px solid #ddd; display: flex; gap: 20px;">
+        <button onclick="switchTab('confirmed')" id="tab-confirmed" style="background: none; border: none; border-bottom: 3px solid #3498db; color: #333; padding: 10px 20px; font-size: 16px; font-weight: bold; cursor: pointer;">Сохраненные анализы</button>
+        <button onclick="switchTab('tasks')" id="tab-tasks" style="background: none; border: none; border-bottom: 3px solid transparent; color: #666; padding: 10px 20px; font-size: 16px; cursor: pointer;">Задачи распознавания</button>
+    </div>
+    
+    <div id="content-confirmed" class="analysis-list">
+        {% if confirmedAnalyses|length > 0 %}
+            {% for analysis in confirmedAnalyses %}
+            <div class="analysis-item">
+                <div class="analysis-info">
+                    <h4>{{ analysis.title ?: 'Анализ #' ~ analysis.id }}</h4>
+                    <div class="date">
+                        {% if analysis.analysisDate %}
+                            Дата анализа: {{ analysis.analysisDate|date('d.m.Y') }}
+                        {% else %}
+                            Загружен: {{ analysis.createdAt|date('d.m.Y H:i') }}
+                        {% endif %}
+                    </div>
+                    <div class="metrics-count">
+                        {{ analysis.metrics|length }} показателей
+                    </div>
+                </div>
+                
+                <div class="analysis-status">
+                    <span class="status-badge status-{{ analysis.status }}">
+                        {% if analysis.status == 'completed' %}
+                            ✅ Завершено
+                        {% elseif analysis.status == 'pending' %}
+                            ⏳ Ожидание
+                        {% elseif analysis.status == 'processing' %}
+                            🔄 Обработка
+                        {% elseif analysis.status == 'error' %}
+                            ❌ Ошибка
+                        {% endif %}
+                    </span>
+                    
+                    <a href="{{ path('app_analysis_view', {id: analysis.id}) }}" class="btn" style="font-size: 14px; padding: 8px 16px;">
+                        Открыть
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div style="text-align: center; padding: 60px; color: #666;">
+                <div style="font-size: 48px; margin-bottom: 20px;">📋</div>
+                <h3>Пока нет сохраненных анализов</h3>
+                <p style="margin: 15px 0;">Загрузите анализ и подтвердите результаты, чтобы отслеживать динамику</p>
+                <a href="{{ path('app_upload') }}" class="btn">Загрузить анализ</a>
+            </div>
+        {% endif %}
+    </div>
+
+    <div id="content-tasks" class="analysis-list" style="display: none;">
+        {% if tasks|length > 0 %}
+            {% for analysis in tasks %}
+            <div class="analysis-item">
+                <div class="analysis-info">
+                    <h4>{{ analysis.title ?: 'Задача #' ~ analysis.id }}</h4>
+                    <div class="date">
+                        Загружен: {{ analysis.createdAt|date('d.m.Y H:i') }}
+                    </div>
+                    <div class="metrics-count">
+                        {{ analysis.metrics|length }} показателей
+                    </div>
+                </div>
+                
+                <div class="analysis-status">
+                    <span class="status-badge status-{{ analysis.status }}">
+                        {% if analysis.status == 'completed' %}
+                            ✅ Распознано (не подтверждено)
+                        {% elseif analysis.status == 'pending' %}
+                            ⏳ Ожидание
+                        {% elseif analysis.status == 'processing' %}
+                            🔄 Обработка
+                        {% elseif analysis.status == 'error' %}
+                            ❌ Ошибка
+                        {% endif %}
+                    </span>
+                    
+                    <a href="{{ path('app_analysis_view', {id: analysis.id}) }}" class="btn" style="font-size: 14px; padding: 8px 16px;">
+                        Подробнее
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div style="text-align: center; padding: 60px; color: #666;">
+                <p style="margin: 15px 0;">Нет активных задач распознавания</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function switchTab(tabName) {
+    const confirmedContent = document.getElementById('content-confirmed');
+    const tasksContent = document.getElementById('content-tasks');
+    const confirmedTab = document.getElementById('tab-confirmed');
+    const tasksTab = document.getElementById('tab-tasks');
+
+    if (tabName === 'confirmed') {
+        confirmedContent.style.display = 'block';
+        tasksContent.style.display = 'none';
+        confirmedTab.style.borderBottomColor = '#3498db';
+        confirmedTab.style.color = '#333';
+        confirmedTab.style.fontWeight = 'bold';
+        tasksTab.style.borderBottomColor = 'transparent';
+        tasksTab.style.color = '#666';
+        tasksTab.style.fontWeight = 'normal';
+    } else {
+        confirmedContent.style.display = 'none';
+        tasksContent.style.display = 'block';
+        tasksTab.style.borderBottomColor = '#3498db';
+        tasksTab.style.color = '#333';
+        tasksTab.style.fontWeight = 'bold';
+        confirmedTab.style.borderBottomColor = 'transparent';
+        confirmedTab.style.color = '#666';
+        confirmedTab.style.fontWeight = 'normal';
+    }
+}
+
+function searchMetric() {
+    const query = document.getElementById('metric-search').value.trim();
+    if (query) {
+        window.location.href = '{{ path('app_history_search') }}?q=' + encodeURIComponent(query);
+    }
+}
+
+// Search on Enter key
+document.getElementById('metric-search').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        searchMetric();
+    }
+});
+</script>
+{% endblock %}

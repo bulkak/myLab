@@ -1,0 +1,132 @@
+services:
+  app:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: mylab-app
+    working_dir: /var/www/html
+    volumes:
+      - ./backend:/var/www/html
+      - ./uploads:/var/www/uploads
+    user: "1000:1000"
+    networks:
+      - mylab-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/mylab?serverVersion=16&charset=utf8
+      - REDIS_URL=redis://redis:6379
+      - MESSENGER_TRANSPORT_DSN=amqp://guest:guest@rabbitmq:5672/%2f/messages
+      - MESSENGER_TRANSPORT_OCR_DSN=amqp://guest:guest@rabbitmq:5672/%2f/ocr
+      - UPLOAD_DIR=/var/www/uploads
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: ./docker/nginx
+      dockerfile: Dockerfile
+    container_name: mylab-nginx
+    ports:
+      - "8090:80"
+    volumes:
+      - ./backend:/var/www/html
+      - ./uploads:/var/www/uploads
+    networks:
+      - mylab-network
+    depends_on:
+      - app
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: mylab-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mylab
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - mylab-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: mylab-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - mylab-network
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: mylab-rabbitmq
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - mylab-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 10s
+
+  ocr-worker:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: mylab-ocr-worker
+    working_dir: /var/www/html
+    volumes:
+      - ./backend:/var/www/html
+      - ./uploads:/var/www/uploads
+    user: "1000:1000"
+    networks:
+      - mylab-network
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/mylab?serverVersion=16&charset=utf8
+      - REDIS_URL=redis://redis:6379
+      - MESSENGER_TRANSPORT_DSN=amqp://guest:guest@rabbitmq:5672/%2f/messages
+      - MESSENGER_TRANSPORT_OCR_DSN=amqp://guest:guest@rabbitmq:5672/%2f/ocr
+      - UPLOAD_DIR=/var/www/uploads
+    command: ["php", "bin/console", "messenger:consume", "ocr", "-vv"]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  mylab-network:
+    driver: bridge

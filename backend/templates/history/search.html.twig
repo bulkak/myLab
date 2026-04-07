@@ -1,0 +1,121 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Поиск показателя - myLab{% endblock %}
+
+{% block nav %}
+    <a href="{{ path('app_dashboard') }}">Главная</a>
+    <a href="{{ path('app_upload') }}">Загрузить</a>
+    <a href="{{ path('app_history') }}">История</a>
+    <form method="POST" action="{{ path('auth_logout') }}" style="display: inline;" hx-boost="false">
+        <button type="submit" class="secondary" style="padding: 8px 16px;">Выйти</button>
+    </form>
+{% endblock %}
+
+{% block styles %}
+.search-box {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+}
+
+.search-box input {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+.result-card {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 15px;
+    cursor: pointer;
+    transition: box-shadow 0.3s;
+}
+
+.result-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.result-card h4 {
+    margin: 0 0 10px 0;
+}
+
+.result-card p {
+    margin: 0;
+    color: #666;
+}
+
+.no-results {
+    text-align: center;
+    padding: 60px;
+    color: #666;
+}
+{% endblock %}
+
+{% block body %}
+<div style="max-width: 800px; margin: 0 auto;">
+    <h2 style="margin-bottom: 20px;">Поиск показателя</h2>
+    
+    <form method="GET" action="{{ path('app_history_search') }}">
+        <div class="search-box">
+            <input type="text" 
+                   name="q" 
+                   value="{{ query }}"
+                   placeholder="Введите название показателя..."
+                   autocomplete="off"
+                   list="metric-suggestions"
+                   autofocus>
+            <datalist id="metric-suggestions">
+                {% for name in metricNames %}
+                <option value="{{ name }}">
+                {% endfor %}
+            </datalist>
+            <button type="submit" class="btn">Найти</button>
+        </div>
+    </form>
+    
+    {% if query %}
+        <h3 style="margin-bottom: 20px;">Результаты поиска: "{{ query }}"</h3>
+        
+        {% if results|length > 0 %}
+            {% for result in results %}
+            <div class="result-card" onclick="window.location.href='{{ metric_dynamics_path(result.name) }}'">
+                <h4>{{ result.name }}</h4>
+                <p>{{ result.metrics|length }} измерений в базе</p>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-results">
+                <div style="font-size: 48px; margin-bottom: 20px;">🔍</div>
+                <h3>Показатель не найден</h3>
+                <p>Попробуйте другой запрос или проверьте написание</p>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="card">
+            <h3 style="margin-bottom: 15px;">Доступные показатели</h3>
+            {% if metricNames|length > 0 %}
+                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                {% for name in metricNames %}
+                    <a href="{{ metric_dynamics_path(name) }}" 
+                       style="background: #f8f9fa; padding: 8px 16px; border-radius: 20px; 
+                              text-decoration: none; color: #333; font-size: 14px;">
+                        {{ name }}
+                    </a>
+                {% endfor %}
+                </div>
+            {% else %}
+                <p style="color: #666;">Показатели пока не добавлены. Загрузите анализы для начала работы.</p>
+            {% endif %}
+        </div>
+    {% endif %}
+    
+    <div style="margin-top: 20px;">
+        <a href="{{ path('app_history') }}" class="btn secondary">← Назад к истории</a>
+    </div>
+</div>
+{% endblock %}

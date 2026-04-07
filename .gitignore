@@ -1,0 +1,28 @@
+# Корень репозитория — правила для backend/ дополняются backend/.gitignore
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python / venv в корне
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+
+# Загрузки пользователей
+**/uploads/*
+!**/.gitkeep
+
+# Логи
+*.log
+npm-debug.log*
+
+node_modules/
+
+# Cursor
+.cursor/

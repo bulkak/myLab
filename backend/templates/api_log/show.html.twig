@@ -1,0 +1,125 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Лог #{{ log.id }} - {{ log.provider }}{% endblock %}
+
+{% block nav %}
+    <a href="{{ path('app_dashboard') }}">Главная</a>
+    <a href="{{ path('app_upload') }}">Загрузить</a>
+    <a href="{{ path('app_history') }}">История</a>
+    <a href="{{ path('app_api_logs') }}">Логи API</a>
+    <form method="POST" action="{{ path('auth_logout') }}" style="display: inline;" hx-boost="false">
+        <button type="submit" class="secondary" style="padding: 8px 16px;">Выйти</button>
+    </form>
+{% endblock %}
+
+{% block styles %}
+.log-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.log-item {
+    margin-bottom: 15px;
+}
+
+.log-label {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.log-value {
+    font-size: 16px;
+    color: #333;
+}
+
+.json-block {
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 15px;
+    overflow-x: auto;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    margin-top: 10px;
+}
+
+.status-success {
+    color: #27ae60;
+    font-weight: 600;
+}
+
+.status-error {
+    color: #e74c3c;
+    font-weight: 600;
+}
+{% endblock %}
+
+{% block body %}
+<div>
+    <div style="margin-bottom: 20px;">
+        <a href="{{ path('app_api_logs') }}" style="color: #3498db; text-decoration: none;">&larr; Назад к логам</a>
+    </div>
+
+    <div class="card">
+        <h2 style="border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 20px;">
+            Детали запроса #{{ log.id }}
+            <span style="font-size: 16px; font-weight: normal; color: #666; margin-left: 10px;">
+                {{ log.provider }} - {{ log.endpoint }}
+            </span>
+        </h2>
+        
+        <div class="log-details">
+            <div class="log-item">
+                <div class="log-label">Дата и время</div>
+                <div class="log-value">{{ log.createdAt|date('Y-m-d H:i:s') }}</div>
+            </div>
+            
+            <div class="log-item">
+                <div class="log-label">Статус</div>
+                <div class="log-value">
+                    {% if log.statusCode == 200 %}
+                        <span class="status-success">
+                            {{ log.statusCode }}
+                        </span>
+                    {% else %}
+                        <span class="status-error">
+                            {{ log.statusCode|default('Ошибка') }}
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="log-item">
+                <div class="log-label">Время выполнения</div>
+                <div class="log-value">{{ log.durationSeconds|number_format(4) }} сек.</div>
+            </div>
+            
+            <div class="log-item">
+                <div class="log-label">Связанный анализ</div>
+                <div class="log-value">
+                    {% if log.analysis %}
+                        <a href="{{ path('app_analysis_view', {id: log.analysis.id}) }}" style="color: #3498db; text-decoration: none;">Анализ #{{ log.analysis.id }}</a>
+                    {% else %}
+                        Нет
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 30px;">
+            <div class="log-label">Request Data</div>
+            <pre class="json-block"><code>{{ log.requestData|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_UNICODE')) }}</code></pre>
+        </div>
+        
+        <div>
+            <div class="log-label">Response Data</div>
+            <pre class="json-block"><code>{{ log.responseData|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_UNICODE')) }}</code></pre>
+        </div>
+    </div>
+</div>
+{% endblock %}

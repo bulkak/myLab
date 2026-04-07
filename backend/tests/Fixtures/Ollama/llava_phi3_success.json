@@ -1,0 +1,4 @@
+{
+  "model": "llava-phi3",
+  "response": "{\n  \"title\": \"Биохимический анализ крови\",\n  \"analysisDate\": \"2024-03-20\",\n  \"metrics\": [\n    {\n      \"name\": \"Аланинаминотрансфераза (АЛТ)\",\n      \"value\": \"28\",\n      \"unit\": \"Ед/л\",\n      \"referenceMin\": \"0\",\n      \"referenceMax\": \"41\",\n      \"isAboveNormal\": false,\n      \"isBelowNormal\": false\n    },\n    {\n      \"name\": \"Аспартатаминотрансфераза (АСТ)\",\n      \"value\": \"32\",\n      \"unit\": \"Ед/л\",\n      \"referenceMin\": \"0\",\n      \"referenceMax\": \"40\",\n      \"isAboveNormal\": false,\n      \"isBelowNormal\": false\n    },\n    {\n      \"name\": \"Общий белок\",\n      \"value\": \"72\",\n      \"unit\": \"г/л\",\n      \"referenceMin\": \"64\",\n      \"referenceMax\": \"83\",\n      \"isAboveNormal\": false,\n      \"isBelowNormal\": false\n    }\n  ]\n}"
+}

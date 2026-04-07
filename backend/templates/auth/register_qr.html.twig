@@ -1,0 +1,57 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Настройка 2FA - myLab{% endblock %}
+
+{% block body %}
+<div class="card" style="max-width: 500px; margin: 0 auto;">
+    <h2 style="margin-bottom: 20px; text-align: center;">Настройка двухфакторной аутентификации</h2>
+    
+    <p style="margin-bottom: 20px;">
+        Отсканируйте QR-код в приложении <strong>Google Authenticator</strong> (или аналогичном):
+    </p>
+    
+    <div class="qr-container">
+        <img src="{{ qrCode }}" alt="QR Code for TOTP">
+    </div>
+    
+    <p style="text-align: center; margin-bottom: 20px;">
+        Если не удается отсканировать, введите код вручную:
+    </p>
+    
+    <div class="secret-code" style="text-align: center;">
+        {{ secret }}
+    </div>
+    
+    <hr style="margin: 30px 0;">
+    
+    <h3 style="margin-bottom: 15px; text-align: center;">Подтвердите настройку</h3>
+    
+    {% if error is defined and error %}
+        <div class="error">{{ error }}</div>
+    {% endif %}
+    
+    <form method="POST" action="{{ verifyUrl }}">
+        <div class="form-group">
+            <label for="code">Введите 6-значный код из приложения</label>
+            <input 
+                type="text" 
+                id="code" 
+                name="code" 
+                placeholder="123456"
+                required
+                maxlength="6"
+                pattern="\d{6}"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                style="font-size: 24px; text-align: center; letter-spacing: 8px;"
+            >
+        </div>
+        
+        <button type="submit" style="width: 100%;">Завершить регистрацию</button>
+    </form>
+    
+    <p style="text-align: center; margin-top: 20px;">
+        <a href="{{ path('auth_register') }}" class="btn secondary">Назад</a>
+    </p>
+</div>
+{% endblock %}
