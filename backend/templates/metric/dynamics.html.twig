@@ -170,6 +170,8 @@
 {% if metrics|length > 0 %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+const PAGE_DYNAMICS_NAME = {{ name|json_encode|raw }};
+
 function toggleEdit(id) {
     const displayDiv = document.getElementById('metric-name-display-' + id);
     const editDiv = document.getElementById('metric-name-edit-' + id);
@@ -206,13 +208,14 @@ function saveName(id) {
             const displayDiv = document.getElementById('metric-name-display-' + id);
             displayDiv.querySelector('span').textContent = data.name;
             toggleEdit(id);
-            
-            // Optional: if the name changed completely, we might want to reload or hide the row
-            // since it no longer belongs to this dynamics view.
-            if (data.name !== '{{ name|escape("js") }}') {
-                const row = displayDiv.closest('tr');
+
+            const row = displayDiv.closest('tr');
+            if (data.name !== PAGE_DYNAMICS_NAME) {
                 row.style.opacity = '0.5';
-                row.title = 'Показатель переименован. Обновите страницу.';
+                row.title = 'Показатель переименован и больше не входит в эту динамику. Обновите страницу.';
+            } else {
+                row.style.opacity = '';
+                row.removeAttribute('title');
             }
         } else {
             alert(data.error || 'Ошибка при сохранении');

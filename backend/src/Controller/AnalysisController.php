@@ -250,6 +250,41 @@ class AnalysisController extends AbstractController
     }
 
     /**
+     * Update analysis title (user-facing name in списках и шапке).
+     */
+    #[Route('/{id}/title', name: 'app_analysis_rename_title', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function renameTitle(int $id, Request $request): JsonResponse
+    {
+        $user = $this->getCurrentUser();
+        if (!$user) {
+            return new JsonResponse(['error' => 'Не авторизован'], 401);
+        }
+
+        $analysis = $this->analysisRepository->findOneByIdAndUser($id, $user);
+        if (!$analysis) {
+            return new JsonResponse(['error' => 'Анализ не найден'], 404);
+        }
+
+        $raw = $request->request->get('title', '');
+        $title = is_string($raw) ? trim($raw) : '';
+        if ($title === '') {
+            $analysis->setTitle(null);
+        } else {
+            if (mb_strlen($title) > 255) {
+                return new JsonResponse(['error' => 'Название не длиннее 255 символов'], 400);
+            }
+            $analysis->setTitle($title);
+        }
+
+        $this->entityManager->flush();
+
+        return new JsonResponse([
+            'success' => true,
+            'title' => $analysis->getTitle(),
+        ]);
+    }
+
+    /**
      * View analysis results
      */
     #[Route('/{id}', name: 'app_analysis_view', methods: ['GET'])]

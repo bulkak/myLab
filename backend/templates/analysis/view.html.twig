@@ -229,7 +229,59 @@
 
 {% block body %}
 <div style="max-width: 1200px; margin: 0 auto;">
-    <h2 style="margin-bottom: 30px;">Результат распознавания анализа</h2>
+    <div style="margin-bottom: 24px;">
+        <div id="analysis-title-display" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <h2 style="margin: 0;">{{ analysis.title ? analysis.title : ('Анализ #' ~ analysis.id) }}</h2>
+            <button type="button" class="btn secondary" style="padding: 4px 10px; font-size: 14px;" onclick="toggleAnalysisTitleEdit()" title="Изменить название">✎</button>
+        </div>
+        <div id="analysis-title-edit" style="display: none; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+            <input type="text" id="analysis-title-input" value="{{ analysis.title ?? '' }}" maxlength="255" placeholder="Название анализа" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; min-width: 240px; max-width: 100%; font-size: 16px;">
+            <button type="button" class="btn" style="padding: 6px 12px; background: #27ae60;" onclick="saveAnalysisTitle()">✓</button>
+            <button type="button" class="btn secondary" style="padding: 6px 12px;" onclick="toggleAnalysisTitleEdit()">✕</button>
+        </div>
+        <p style="margin: 8px 0 0 0; color: #666; font-size: 14px;">Результат распознавания</p>
+    </div>
+
+    <script>
+    function toggleAnalysisTitleEdit() {
+        const d = document.getElementById('analysis-title-display');
+        const e = document.getElementById('analysis-title-edit');
+        if (!d || !e) return;
+        if (e.style.display === 'none' || e.style.display === '') {
+            e.style.display = 'flex';
+            d.style.display = 'none';
+            const inp = document.getElementById('analysis-title-input');
+            if (inp) { inp.focus(); inp.select(); }
+        } else {
+            e.style.display = 'none';
+            d.style.display = 'flex';
+        }
+    }
+    function saveAnalysisTitle() {
+        const inp = document.getElementById('analysis-title-input');
+        if (!inp) return;
+        const title = inp.value.trim();
+        fetch({{ path('app_analysis_rename_title', {id: analysis.id})|json_encode|raw }}, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'title=' + encodeURIComponent(title)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const h2 = document.querySelector('#analysis-title-display h2');
+                if (h2) {
+                    h2.textContent = data.title ? data.title : ('Анализ #{{ analysis.id }}');
+                }
+                inp.value = data.title ? data.title : '';
+                toggleAnalysisTitleEdit();
+            } else {
+                alert(data.error || 'Не удалось сохранить');
+            }
+        })
+        .catch(err => { console.error(err); alert('Ошибка сохранения'); });
+    }
+    </script>
     
     {% if analysis.status == constant('App\\Entity\\Analysis::STATUS_COMPLETED') %}
         <!-- OCR Results Comparison -->
