@@ -149,7 +149,7 @@ class OpenAiOcrEngine implements OcrEngineInterface
             $metrics = $this->csvToMetrics($csvContent);
 
             // 2. Отправляем запрос на дату
-            $promptDate = "Найди на изображении дату исследования. Верни только в формате YYYY-MM-DD.\nЕсли несколько дат — верни первую.\nПример: 2024-03-20";
+            $promptDate = CompletionDateExtractor::PROMPT_DATE_RU;
             
             $messagesDate = [
                 [
@@ -186,7 +186,7 @@ class OpenAiOcrEngine implements OcrEngineInterface
                 'model' => $selectedModel,
                 'messages' => $messagesDate,
                 'temperature' => 0.0,
-                'max_tokens' => 100,
+                'max_tokens' => CompletionDateExtractor::DATE_STEP_MAX_TOKENS,
             ];
 
             $optionsDate = [
@@ -209,8 +209,7 @@ class OpenAiOcrEngine implements OcrEngineInterface
             } else {
                 $responseDataDate = $responseDate->toArray();
                 $responseData['date_response'] = $responseDataDate;
-                $dateContent = $responseDataDate['choices'][0]['message']['content'] ?? '';
-                $dateContent = trim($dateContent);
+                $dateContent = CompletionDateExtractor::fromChatCompletionResponse($responseDataDate);
             }
 
             // 3. Формируем итоговый JSON

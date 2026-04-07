@@ -154,7 +154,7 @@ class GigaChatOcrEngine implements OcrEngineInterface
             }
 
             // 3. Отправляем запрос на дату (только для первой страницы)
-            $promptDate = "Найди на изображении дату исследования. Верни только в формате YYYY-MM-DD.\nЕсли несколько дат — верни первую.\nПример: 2024-03-20";
+            $promptDate = CompletionDateExtractor::PROMPT_DATE_RU;
             
             $this->logger->debug("Sending Date request to GigaChat", [
                 'model' => $selectedModel,
@@ -174,7 +174,7 @@ class GigaChatOcrEngine implements OcrEngineInterface
                 ],
                 'temperature' => 0.0,
                 'top_p' => 0.1,
-                'max_tokens' => 100,
+                'max_tokens' => CompletionDateExtractor::DATE_STEP_MAX_TOKENS,
             ];
 
             $requestData['date_request'] = $requestDataDate;
@@ -196,8 +196,7 @@ class GigaChatOcrEngine implements OcrEngineInterface
             } else {
                 $responseDataDate = $responseDate->toArray();
                 $responseData['date_response'] = $responseDataDate;
-                $dateContent = $responseDataDate['choices'][0]['message']['content'] ?? '';
-                $dateContent = trim($dateContent);
+                $dateContent = CompletionDateExtractor::fromChatCompletionResponse($responseDataDate);
             }
 
             // 4. Формируем итоговый JSON
