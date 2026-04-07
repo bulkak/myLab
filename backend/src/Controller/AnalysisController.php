@@ -8,6 +8,7 @@ use App\Entity\Analysis;
 use App\Entity\Metric;
 use App\Message\OCRJob;
 use App\Repository\AnalysisRepository;
+use App\Repository\MetricAliasRepository;
 use App\Repository\UserRepository;
 use App\Service\AuthSessionService;
 use App\Service\OcrManager;
@@ -32,6 +33,7 @@ class AnalysisController extends AbstractController
     private MessageBusInterface $messageBus;
     private OcrManager $ocrManager;
     private LoggerInterface $logger;
+    private MetricAliasRepository $metricAliasRepository;
 
     /**
      * Available OCR models for reprocessing.
@@ -72,7 +74,8 @@ class AnalysisController extends AbstractController
         EntityManagerInterface $entityManager,
         MessageBusInterface $messageBus,
         OcrManager $ocrManager,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        MetricAliasRepository $metricAliasRepository
     ) {
         $this->sessionService = $sessionService;
         $this->userRepository = $userRepository;
@@ -81,6 +84,7 @@ class AnalysisController extends AbstractController
         $this->messageBus = $messageBus;
         $this->ocrManager = $ocrManager;
         $this->logger = $logger;
+        $this->metricAliasRepository = $metricAliasRepository;
     }
 
     /**
@@ -318,6 +322,68 @@ class AnalysisController extends AbstractController
         return new JsonResponse([
             'success' => true,
             'date' => $analysis->getAnalysisDate()?->format('Y-m-d'),
+        ]);
+    }
+
+    /**
+     * Добавить показатель вручную (после распознавания или для дополнения списка).
+     */
+    #[Route('/{id}/metrics', name: 'app_analysis_add_metric', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function addMetric(int $id, Request $request): JsonResponse
+    {
+        $user = $this->getCurrentUser();
+        if (!$user) {
+            return new JsonResponse(['error' => 'Не авторизован'], 401);
+        }
+
+        $analysis = $this->analysisRepository->findOneByIdAndUser($id, $user);
+        if (!$analysis) {
+            return new JsonResponse(['error' => 'Анализ не найден'], 404);
+        }
+
+        if ($analysis->getStatus() !== Analysis::STATUS_COMPLETED) {
+            return new JsonResponse(['error' => 'Показатели можно добавлять только после завершения распознавания'], 400);
+        }
+
+        $name = trim((string) $request->request->get('name', ''));
+        $value = trim((string) $request->request->get('value', ''));
+        if ($name === '' || $value === '') {
+            return new JsonResponse(['error' => 'Укажите название и значение показателя'], 400);
+        }
+
+        $unit = trim((string) $request->request->get('unit', ''));
+        $refMin = trim((string) $request->request->get('referenceMin', ''));
+        $refMax = trim((string) $request->request->get('referenceMax', ''));
+
+        $metric = new Metric();
+        $analysis->addMetric($metric);
+        $metric->setName($name);
+        $metric->setValue($value);
+        $metric->setUnit($unit !== '' ? $unit : null);
+        $metric->setReferenceMin($refMin !== '' ? $refMin : null);
+        $metric->setReferenceMax($refMax !== '' ? $refMax : null);
+        $metric->setIsAboveNormal(null);
+        $metric->setIsBelowNormal(null);
+
+        $canonicalName = $this->metricAliasRepository->findCanonicalName($user, $name);
+        if ($canonicalName) {
+            $metric->setCanonicalName($canonicalName);
+        }
+
+        $this->entityManager->persist($metric);
+        $this->entityManager->flush();
+
+        return new JsonResponse([
+            'success' => true,
+            'metric' => [
+                'id' => $metric->getId(),
+                'name' => $metric->getName(),
+                'canonicalName' => $metric->getCanonicalName(),
+                'value' => $metric->getValue(),
+                'unit' => $metric->getUnit(),
+                'referenceMin' => $metric->getReferenceMin(),
+                'referenceMax' => $metric->getReferenceMax(),
+            ],
         ]);
     }
 

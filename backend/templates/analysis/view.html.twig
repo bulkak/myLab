@@ -340,6 +340,40 @@
         })
         .catch(err => { console.error(err); alert('Ошибка сохранения'); });
     }
+    function submitAddAnalysisMetric() {
+        const nameEl = document.getElementById('add-metric-name');
+        const valueEl = document.getElementById('add-metric-value');
+        const unitEl = document.getElementById('add-metric-unit');
+        const refMinEl = document.getElementById('add-metric-ref-min');
+        const refMaxEl = document.getElementById('add-metric-ref-max');
+        if (!nameEl || !valueEl) return;
+        const name = nameEl.value.trim();
+        const value = valueEl.value.trim();
+        if (!name || !value) {
+            alert('Укажите название и значение показателя');
+            return;
+        }
+        const params = new URLSearchParams();
+        params.set('name', name);
+        params.set('value', value);
+        if (unitEl && unitEl.value.trim()) params.set('unit', unitEl.value.trim());
+        if (refMinEl && refMinEl.value.trim()) params.set('referenceMin', refMinEl.value.trim());
+        if (refMaxEl && refMaxEl.value.trim()) params.set('referenceMax', refMaxEl.value.trim());
+        fetch({{ path('app_analysis_add_metric', {id: analysis.id})|json_encode|raw }}, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.error || 'Не удалось добавить показатель');
+            }
+        })
+        .catch(err => { console.error(err); alert('Ошибка сети'); });
+    }
     </script>
     
     {% if analysis.status == constant('App\\Entity\\Analysis::STATUS_COMPLETED') %}
@@ -415,23 +449,24 @@
         {% endif %}
 
         <!-- Extracted Metrics -->
-        {% if analysis.metrics.count > 0 %}
-            <div class="card metrics-section">
-                <h3>Извлеченные показатели</h3>
-                {% if not analysis.isConfirmed %}
-                    <form action="{{ path('app_analysis_confirm', {id: analysis.id}) }}" method="POST" id="confirm-form">
-                {% endif %}
-                <table class="metrics-table">
-                    <thead>
-                        <tr>
-                            <th>Показатель</th>
-                            <th>Значение</th>
-                            <th>Единица</th>
-                            <th>Норма</th>
-                            <th>Статус</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+        <div class="card metrics-section">
+            <h3>Показатели</h3>
+            <p style="color:#666; font-size: 14px; margin: 0 0 12px 0;">Распознанные моделью и добавленные вручную.</p>
+            {% if not analysis.isConfirmed %}
+                <form action="{{ path('app_analysis_confirm', {id: analysis.id}) }}" method="POST" id="confirm-form">
+            {% endif %}
+            <table class="metrics-table">
+                <thead>
+                    <tr>
+                        <th>Показатель</th>
+                        <th>Значение</th>
+                        <th>Единица</th>
+                        <th>Норма</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if analysis.metrics is not empty %}
                         {% for metric in analysis.metrics %}
                             <tr>
                                 <td class="metric-name">
@@ -455,24 +490,59 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if metric.isAboveNormal %}
+                                    {% if metric.isAboveNormal is same as(true) %}
                                         <span class="abnormal-high">↑ Выше нормы</span>
-                                    {% elseif metric.isBelowNormal %}
+                                    {% elseif metric.isBelowNormal is same as(true) %}
                                         <span class="abnormal-low">↓ Ниже нормы</span>
-                                    {% else %}
+                                    {% elseif metric.isAboveNormal is same as(false) and metric.isBelowNormal is same as(false) %}
                                         ✓ Норма
+                                    {% else %}
+                                        <span style="color:#888;">—</span>
                                     {% endif %}
                                 </td>
                             </tr>
                         {% endfor %}
-                    </tbody>
-                </table>
-                {% if not analysis.isConfirmed %}
-                    </form>
-                    <datalist id="metric-suggestions"></datalist>
-                {% endif %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5" style="color:#666;">Пока нет показателей. Добавьте вручную ниже или перераспознайте документ.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+            {% if not analysis.isConfirmed %}
+                </form>
+            {% endif %}
+            <datalist id="metric-suggestions"></datalist>
+
+            <div style="margin-top: 20px; padding: 16px; border: 1px dashed #cbd5e1; border-radius: 8px; background: #fafafa;">
+                <h4 style="margin: 0 0 12px 0; font-size: 16px;">Добавить показатель вручную</h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; align-items: end; max-width: 720px;">
+                    <div>
+                        <label for="add-metric-name" style="display:block; font-size: 13px; color:#555; margin-bottom: 4px;">Название</label>
+                        <input type="text" id="add-metric-name" class="metric-name-input" list="metric-suggestions" autocomplete="off" placeholder="Например, Гемоглобин" style="width:100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label for="add-metric-value" style="display:block; font-size: 13px; color:#555; margin-bottom: 4px;">Значение</label>
+                        <input type="text" id="add-metric-value" placeholder="140" style="width:100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label for="add-metric-unit" style="display:block; font-size: 13px; color:#555; margin-bottom: 4px;">Единица</label>
+                        <input type="text" id="add-metric-unit" placeholder="г/л" style="width:100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label for="add-metric-ref-min" style="display:block; font-size: 13px; color:#555; margin-bottom: 4px;">Норма от</label>
+                        <input type="text" id="add-metric-ref-min" placeholder="опционально" style="width:100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label for="add-metric-ref-max" style="display:block; font-size: 13px; color:#555; margin-bottom: 4px;">Норма до</label>
+                        <input type="text" id="add-metric-ref-max" placeholder="опционально" style="width:100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <button type="button" class="btn" style="width:100%; background:#3498db;" onclick="submitAddAnalysisMetric()">Добавить</button>
+                    </div>
+                </div>
             </div>
-        {% endif %}
+        </div>
 
         <div style="margin-top: 30px; display: flex; gap: 10px;">
             {% if not analysis.isConfirmed %}
