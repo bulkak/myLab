@@ -33,7 +33,7 @@ docker_compose "${COMPOSE_FILES[@]}" up -d --build
 
 echo "==> Waiting for PostgreSQL to become ready"
 for _ in $(seq 1 90); do
-  if docker_compose "${COMPOSE_FILES[@]}" exec -T postgres pg_isready -U postgres -q 2>/dev/null; then
+  if docker_compose "${COMPOSE_FILES[@]}" exec -T postgres sh -c 'pg_isready -U "${POSTGRES_USER:-postgres}" -q' 2>/dev/null; then
     break
   fi
   sleep 1
