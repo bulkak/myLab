@@ -21,7 +21,7 @@ services:
 
   nginx:
     ports:
-      - "${APP_HTTP_PORT:-8090}:80"
+      - "${APP_HTTP_PORT:-80}:80"
     restart: unless-stopped
 
   postgres:
