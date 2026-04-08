@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Entity\Metric;
 use App\Repository\MetricRepository;
 use App\Util\MetricDynamicsToken;
 use App\Repository\UserRepository;
@@ -89,6 +90,44 @@ class MetricController extends AbstractController
         ]);
     }
 
+    #[Route('/{id}/value', name: 'app_metric_update_value', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function updateValue(
+        int $id,
+        Request $request,
+        MetricRepository $metricRepository,
+        EntityManagerInterface $entityManager,
+        AuthSessionService $sessionService
+    ): JsonResponse {
+        $userId = $sessionService->getUserId();
+        if (!$userId) {
+            return new JsonResponse(['error' => 'Unauthorized'], 401);
+        }
+
+        $metric = $metricRepository->find($id);
+        if (!$metric || $metric->getAnalysis()->getUser()->getId() !== $userId) {
+            return new JsonResponse(['error' => 'Metric not found'], 404);
+        }
+
+        $value = trim((string) $request->request->get('value', ''));
+        if ($value === '') {
+            return new JsonResponse(['error' => 'Значение не может быть пустым'], 400);
+        }
+        if (mb_strlen($value) > 100) {
+            return new JsonResponse(['error' => 'Значение не длиннее 100 символов'], 400);
+        }
+
+        $metric->setValue($value);
+        $this->recomputeMetricNormality($metric);
+        $entityManager->flush();
+
+        return new JsonResponse([
+            'success' => true,
+            'value' => $metric->getValue(),
+            'isAboveNormal' => $metric->isAboveNormal(),
+            'isBelowNormal' => $metric->isBelowNormal(),
+        ]);
+    }
+
     #[Route('/dynamics/{token}', name: 'app_metric_dynamics', requirements: ['token' => '[A-Za-z0-9_-]+'])]
     public function dynamics(string $token, MetricRepository $metricRepository, AuthSessionService $sessionService): Response
     {
@@ -125,5 +164,39 @@ class MetricController extends AbstractController
             'name' => $name,
             'metrics' => $metrics,
         ]);
+    }
+
+    /**
+     * После ручного изменения значения пересчитать ↑/↓ по референсу, если значение числовое.
+     */
+    private function recomputeMetricNormality(Metric $metric): void
+    {
+        $refMin = $metric->getReferenceMin();
+        $refMax = $metric->getReferenceMax();
+        if ($refMin === null && $refMax === null) {
+            return;
+        }
+
+        $vRaw = trim((string) $metric->getValue());
+        if ($vRaw === '') {
+            return;
+        }
+
+        $normalized = str_replace(',', '.', preg_replace('/\s+/', '', $vRaw) ?? '');
+        if ($normalized === '' || !is_numeric($normalized)) {
+            $metric->setIsAboveNormal(null);
+            $metric->setIsBelowNormal(null);
+
+            return;
+        }
+
+        $v = (float) $normalized;
+        $min = $refMin !== null ? (float) str_replace(',', '.', (string) $refMin) : null;
+        $max = $refMax !== null ? (float) str_replace(',', '.', (string) $refMax) : null;
+
+        $above = $max !== null && $v > $max;
+        $below = $min !== null && $v < $min;
+        $metric->setIsAboveNormal($above);
+        $metric->setIsBelowNormal($below);
     }
 }

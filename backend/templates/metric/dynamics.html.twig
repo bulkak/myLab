@@ -115,7 +115,7 @@
                 </thead>
                 <tbody>
                     {% for metric in metrics|reverse %}
-                    <tr>
+                    <tr data-chart-index="{{ metrics|length - loop.index }}">
                         <td>
                             {{ metric.analysis.analysisDate ? metric.analysis.analysisDate|date('d.m.Y') : metric.analysis.createdAt|date('d.m.Y') }}
                         </td>
@@ -131,7 +131,15 @@
                             </div>
                         </td>
                         <td class="value-cell">
-                            {{ metric.value }}
+                            <div id="metric-value-display-{{ metric.id }}" style="display: flex; align-items: center; gap: 8px;">
+                                <span>{{ metric.value }}</span>
+                                <button type="button" class="btn secondary" style="padding: 2px 6px; font-size: 12px;" onclick="toggleValueEdit({{ metric.id }})" title="Изменить значение">✎</button>
+                            </div>
+                            <div id="metric-value-edit-{{ metric.id }}" style="display: none; align-items: center; gap: 8px;">
+                                <input type="text" id="value-input-{{ metric.id }}" value="{{ metric.value }}" maxlength="100" autocomplete="off" style="padding: 4px; border: 1px solid #ccc; border-radius: 4px; width: 120px;">
+                                <button type="button" class="btn" style="padding: 2px 6px; font-size: 12px; background: #27ae60;" onclick="saveMetricValue({{ metric.id }})">✓</button>
+                                <button type="button" class="btn secondary" style="padding: 2px 6px; font-size: 12px;" onclick="toggleValueEdit({{ metric.id }})">✕</button>
+                            </div>
                         </td>
                         <td>{{ metric.unit ?? '—' }}</td>
                         <td class="reference-cell">
@@ -145,13 +153,15 @@
                                 —
                             {% endif %}
                         </td>
-                        <td>
-                            {% if metric.isAboveNormal %}
+                        <td id="metric-status-{{ metric.id }}">
+                            {% if metric.isAboveNormal is same as(true) %}
                                 <span class="value-above">↑ Выше нормы</span>
-                            {% elseif metric.isBelowNormal %}
+                            {% elseif metric.isBelowNormal is same as(true) %}
                                 <span class="value-below">↓ Ниже нормы</span>
-                            {% else %}
+                            {% elseif metric.isAboveNormal is same as(false) and metric.isBelowNormal is same as(false) %}
                                 <span class="value-normal">✓ Норма</span>
+                            {% else %}
+                                <span style="color:#888;">—</span>
                             {% endif %}
                         </td>
                         <td>
@@ -171,6 +181,86 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 const PAGE_DYNAMICS_NAME = {{ name|json_encode|raw }};
+
+function dynamicsStatusCellHtml(above, below) {
+    if (above === true) {
+        return '<span class="value-above">↑ Выше нормы</span>';
+    }
+    if (below === true) {
+        return '<span class="value-below">↓ Ниже нормы</span>';
+    }
+    if (above === false && below === false) {
+        return '<span class="value-normal">✓ Норма</span>';
+    }
+    return '<span style="color:#888;">—</span>';
+}
+
+function toggleValueEdit(id) {
+    const displayDiv = document.getElementById('metric-value-display-' + id);
+    const editDiv = document.getElementById('metric-value-edit-' + id);
+    if (!displayDiv || !editDiv) {
+        return;
+    }
+    if (editDiv.style.display === 'none' || editDiv.style.display === '') {
+        displayDiv.style.display = 'none';
+        editDiv.style.display = 'flex';
+        const inp = document.getElementById('value-input-' + id);
+        if (inp) {
+            inp.focus();
+            inp.select();
+        }
+    } else {
+        displayDiv.style.display = 'flex';
+        editDiv.style.display = 'none';
+    }
+}
+
+function saveMetricValue(id) {
+    const input = document.getElementById('value-input-' + id);
+    if (!input) {
+        return;
+    }
+    const newValue = input.value.trim();
+    if (!newValue) {
+        alert('Значение не может быть пустым');
+        return;
+    }
+
+    fetch('{{ path("app_metric_update_value", {id: 0})|e('js') }}'.replace(/(\/metric\/)\d+(\/value)/, '$1' + id + '$2'), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'value=' + encodeURIComponent(newValue)
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const displayDiv = document.getElementById('metric-value-display-' + id);
+                displayDiv.querySelector('span').textContent = data.value;
+                input.value = data.value;
+                const statusCell = document.getElementById('metric-status-' + id);
+                if (statusCell) {
+                    statusCell.innerHTML = dynamicsStatusCellHtml(data.isAboveNormal, data.isBelowNormal);
+                }
+                const tr = displayDiv.closest('tr');
+                const idx = tr && tr.dataset.chartIndex !== undefined ? parseInt(tr.dataset.chartIndex, 10) : NaN;
+                if (window.dynamicsChartInstance && !Number.isNaN(idx)) {
+                    const parsedVal = String(data.value).replace(',', '.').replace(/[^0-9.-]/g, '');
+                    const num = parseFloat(parsedVal);
+                    window.dynamicsChartInstance.data.datasets[0].data[idx] = Number.isFinite(num) ? num : 0;
+                    window.dynamicsChartInstance.update();
+                }
+                toggleValueEdit(id);
+            } else {
+                alert(data.error || 'Ошибка при сохранении');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Ошибка при сохранении');
+        });
+}
 
 function toggleEdit(id) {
     const displayDiv = document.getElementById('metric-name-display-' + id);
@@ -272,7 +362,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     {% endfor %}
 
-    new Chart(ctx, {
+    window.dynamicsChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,

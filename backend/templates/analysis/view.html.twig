@@ -374,6 +374,106 @@
         })
         .catch(err => { console.error(err); alert('Ошибка сети'); });
     }
+
+    const __metricUpdateUrl = {{ path('app_analysis_update_metric', {id: analysis.id, metricId: 888888888})|json_encode|raw }}.replace('888888888', '__ID__');
+    const __metricDeleteUrl = {{ path('app_analysis_delete_metric', {id: analysis.id, metricId: 888888888})|json_encode|raw }}.replace('888888888', '__ID__');
+    function metricUpdateUrl(id) { return __metricUpdateUrl.replace('__ID__', String(id)); }
+    function metricDeleteUrl(id) { return __metricDeleteUrl.replace('__ID__', String(id)); }
+
+    function metricStatusCellHtml(above, below) {
+        if (above === true) return '<span class="abnormal-high">↑ Выше нормы</span>';
+        if (below === true) return '<span class="abnormal-low">↓ Ниже нормы</span>';
+        if (above === false && below === false) return '✓ Норма';
+        return '<span style="color:#888;">—</span>';
+    }
+
+    function toggleMetricNameEdit(mid) {
+        const v = document.getElementById('metric-' + mid + '-name-view');
+        const e = document.getElementById('metric-' + mid + '-name-edit');
+        if (!v || !e) return;
+        if (e.style.display === 'none' || e.style.display === '') {
+            e.style.display = 'flex';
+            v.style.display = 'none';
+            const inp = document.getElementById('metric-' + mid + '-name-input');
+            if (inp) { inp.focus(); inp.select(); }
+        } else {
+            e.style.display = 'none';
+            v.style.display = 'flex';
+        }
+    }
+    function saveMetricName(mid) {
+        const inp = document.getElementById('metric-' + mid + '-name-input');
+        if (!inp) return;
+        const name = inp.value.trim();
+        if (!name) { alert('Укажите название'); return; }
+        const body = new URLSearchParams();
+        body.set('name', name);
+        fetch(metricUpdateUrl(mid), { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const span = document.getElementById('metric-' + mid + '-name-text');
+                    if (span) span.textContent = data.canonicalName || name;
+                    inp.value = data.canonicalName || name;
+                    toggleMetricNameEdit(mid);
+                } else {
+                    alert(data.error || 'Не удалось сохранить');
+                }
+            })
+            .catch(err => { console.error(err); alert('Ошибка сохранения'); });
+    }
+
+    function toggleMetricValueEdit(mid) {
+        const v = document.getElementById('metric-' + mid + '-value-view');
+        const e = document.getElementById('metric-' + mid + '-value-edit');
+        if (!v || !e) return;
+        if (e.style.display === 'none' || e.style.display === '') {
+            e.style.display = 'flex';
+            v.style.display = 'none';
+            const inp = document.getElementById('metric-' + mid + '-value-input');
+            if (inp) { inp.focus(); inp.select(); }
+        } else {
+            e.style.display = 'none';
+            v.style.display = 'flex';
+        }
+    }
+    function saveMetricValue(mid) {
+        const inp = document.getElementById('metric-' + mid + '-value-input');
+        if (!inp) return;
+        const value = inp.value.trim();
+        if (!value) { alert('Укажите значение'); return; }
+        const body = new URLSearchParams();
+        body.set('value', value);
+        fetch(metricUpdateUrl(mid), { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const span = document.getElementById('metric-' + mid + '-value-text');
+                    if (span) span.textContent = data.value;
+                    inp.value = data.value;
+                    const cell = document.getElementById('metric-' + mid + '-status-cell');
+                    if (cell) cell.innerHTML = metricStatusCellHtml(data.isAboveNormal, data.isBelowNormal);
+                    toggleMetricValueEdit(mid);
+                } else {
+                    alert(data.error || 'Не удалось сохранить');
+                }
+            })
+            .catch(err => { console.error(err); alert('Ошибка сохранения'); });
+    }
+
+    function deleteAnalysisMetric(mid) {
+        if (!confirm('Удалить этот показатель?')) return;
+        fetch(metricDeleteUrl(mid), { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: '' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.error || 'Не удалось удалить');
+                }
+            })
+            .catch(err => { console.error(err); alert('Ошибка сети'); });
+    }
     </script>
     
     {% if analysis.status == constant('App\\Entity\\Analysis::STATUS_COMPLETED') %}
@@ -394,20 +494,47 @@
                         <th>Единица</th>
                         <th>Норма</th>
                         <th>Статус</th>
+                        <th style="width: 1%; white-space: nowrap;"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% if analysis.metrics is not empty %}
                         {% for metric in analysis.metrics %}
-                            <tr>
+                            <tr id="metric-row-{{ metric.id }}" data-metric-id="{{ metric.id }}">
                                 <td class="metric-name">
                                     {% if not analysis.isConfirmed %}
-                                        <input type="text" name="metrics[{{ metric.id }}]" value="{{ metric.canonicalName ?? metric.name }}" class="metric-name-input" list="metric-suggestions" autocomplete="off" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; font-size: 14px;">
+                                        <input type="text" name="metrics[{{ metric.id }}][name]" value="{{ metric.canonicalName ?? metric.name }}" class="metric-name-input" list="metric-suggestions" autocomplete="off" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; font-size: 14px;">
                                     {% else %}
-                                        {{ metric.canonicalName ?? metric.name }}
+                                        <div>
+                                            <div id="metric-{{ metric.id }}-name-view" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                                <span id="metric-{{ metric.id }}-name-text">{{ metric.canonicalName ?? metric.name }}</span>
+                                                <button type="button" class="btn secondary" style="padding: 2px 8px; font-size: 12px;" onclick="toggleMetricNameEdit({{ metric.id }})" title="Изменить название">✎</button>
+                                            </div>
+                                            <div id="metric-{{ metric.id }}-name-edit" style="display: none; margin-top: 8px; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                                <input type="text" id="metric-{{ metric.id }}-name-input" value="{{ metric.canonicalName ?? metric.name }}" maxlength="255" class="metric-name-input" list="metric-suggestions" autocomplete="off" style="min-width: 180px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                                                <button type="button" class="btn" style="padding: 4px 10px; background: #27ae60;" onclick="saveMetricName({{ metric.id }})">✓</button>
+                                                <button type="button" class="btn secondary" style="padding: 4px 10px;" onclick="toggleMetricNameEdit({{ metric.id }})">✕</button>
+                                            </div>
+                                        </div>
                                     {% endif %}
                                 </td>
-                                <td class="metric-value">{{ metric.value }}</td>
+                                <td class="metric-value">
+                                    {% if not analysis.isConfirmed %}
+                                        <input type="text" name="metrics[{{ metric.id }}][value]" value="{{ metric.value }}" class="metric-value-input" autocomplete="off" style="width: 100%; min-width: 5em; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; font-size: 14px;">
+                                    {% else %}
+                                        <div>
+                                            <div id="metric-{{ metric.id }}-value-view" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                                <span id="metric-{{ metric.id }}-value-text" class="metric-value-display">{{ metric.value }}</span>
+                                                <button type="button" class="btn secondary" style="padding: 2px 8px; font-size: 12px;" onclick="toggleMetricValueEdit({{ metric.id }})" title="Изменить значение">✎</button>
+                                            </div>
+                                            <div id="metric-{{ metric.id }}-value-edit" style="display: none; margin-top: 8px; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                                <input type="text" id="metric-{{ metric.id }}-value-input" value="{{ metric.value }}" maxlength="100" autocomplete="off" style="min-width: 100px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                                                <button type="button" class="btn" style="padding: 4px 10px; background: #27ae60;" onclick="saveMetricValue({{ metric.id }})">✓</button>
+                                                <button type="button" class="btn secondary" style="padding: 4px 10px;" onclick="toggleMetricValueEdit({{ metric.id }})">✕</button>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                </td>
                                 <td>{{ metric.unit ?? '—' }}</td>
                                 <td class="normal-range">
                                     {% if metric.referenceMin and metric.referenceMax %}
@@ -420,7 +547,7 @@
                                         —
                                     {% endif %}
                                 </td>
-                                <td>
+                                <td id="metric-{{ metric.id }}-status-cell">
                                     {% if metric.isAboveNormal is same as(true) %}
                                         <span class="abnormal-high">↑ Выше нормы</span>
                                     {% elseif metric.isBelowNormal is same as(true) %}
@@ -431,11 +558,14 @@
                                         <span style="color:#888;">—</span>
                                     {% endif %}
                                 </td>
+                                <td style="vertical-align: middle;">
+                                    <button type="button" class="btn secondary" style="padding: 4px 10px; font-size: 13px;" onclick="deleteAnalysisMetric({{ metric.id }})" title="Удалить показатель">🗑</button>
+                                </td>
                             </tr>
                         {% endfor %}
                     {% else %}
                         <tr>
-                            <td colspan="5" style="color:#666;">Пока нет показателей. Добавьте вручную ниже или перераспознайте документ.</td>
+                            <td colspan="6" style="color:#666;">Пока нет показателей. Добавьте вручную ниже или перераспознайте документ.</td>
                         </tr>
                     {% endif %}
                 </tbody>

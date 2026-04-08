@@ -115,14 +115,35 @@ class AnalysisController extends AbstractController
             throw $this->createNotFoundException('Анализ не найден');
         }
 
-        // Process metric names if submitted
+        // Имена и значения показателей: metrics[id][name], metrics[id][value]; старый формат metrics[id] = только имя
         $metricsData = $request->request->all('metrics');
         if (is_array($metricsData)) {
             foreach ($analysis->getMetrics() as $metric) {
                 $metricId = $metric->getId();
-                if (isset($metricsData[$metricId])) {
-                    $newName = trim((string)$metricsData[$metricId]);
-                    if (!empty($newName)) {
+                if ($metricId === null) {
+                    continue;
+                }
+                $payload = $metricsData[$metricId] ?? $metricsData[(string) $metricId] ?? null;
+                if ($payload === null) {
+                    continue;
+                }
+                if (\is_array($payload)) {
+                    if (isset($payload['name'])) {
+                        $newName = trim((string) $payload['name']);
+                        if ($newName !== '') {
+                            $metric->setCanonicalName($newName);
+                        }
+                    }
+                    if (\array_key_exists('value', $payload)) {
+                        $newValue = trim((string) $payload['value']);
+                        if ($newValue !== '') {
+                            $metric->setValue($newValue);
+                            $this->recomputeMetricNormality($metric);
+                        }
+                    }
+                } else {
+                    $newName = trim((string) $payload);
+                    if ($newName !== '') {
                         $metric->setCanonicalName($newName);
                     }
                 }
@@ -388,6 +409,104 @@ class AnalysisController extends AbstractController
     }
 
     /**
+     * Изменить название и/или значение показателя (в т.ч. после сохранения анализа в историю).
+     */
+    #[Route('/{id}/metrics/{metricId}', name: 'app_analysis_update_metric', methods: ['POST'], requirements: ['id' => '\d+', 'metricId' => '\d+'])]
+    public function updateMetric(int $id, int $metricId, Request $request): JsonResponse
+    {
+        $user = $this->getCurrentUser();
+        if (!$user) {
+            return new JsonResponse(['error' => 'Не авторизован'], 401);
+        }
+
+        $analysis = $this->analysisRepository->findOneByIdAndUser($id, $user);
+        if (!$analysis) {
+            return new JsonResponse(['error' => 'Анализ не найден'], 404);
+        }
+
+        if ($analysis->getStatus() !== Analysis::STATUS_COMPLETED) {
+            return new JsonResponse(['error' => 'Анализ не в состоянии «завершён»'], 400);
+        }
+
+        $metric = $this->entityManager->find(Metric::class, $metricId);
+        if ($metric === null || $metric->getAnalysis()?->getId() !== $analysis->getId()) {
+            return new JsonResponse(['error' => 'Показатель не найден'], 404);
+        }
+
+        $hasName = $request->request->has('name');
+        $hasValue = $request->request->has('value');
+        if (!$hasName && !$hasValue) {
+            return new JsonResponse(['error' => 'Укажите name и/или value'], 400);
+        }
+
+        if ($hasName) {
+            $name = trim((string) $request->request->get('name'));
+            if ($name === '') {
+                return new JsonResponse(['error' => 'Название не может быть пустым'], 400);
+            }
+            if (mb_strlen($name) > 255) {
+                return new JsonResponse(['error' => 'Название не длиннее 255 символов'], 400);
+            }
+            $metric->setName($name);
+            $metric->setCanonicalName($name);
+        }
+
+        if ($hasValue) {
+            $value = trim((string) $request->request->get('value'));
+            if ($value === '') {
+                return new JsonResponse(['error' => 'Значение не может быть пустым'], 400);
+            }
+            if (mb_strlen($value) > 100) {
+                return new JsonResponse(['error' => 'Значение не длиннее 100 символов'], 400);
+            }
+            $metric->setValue($value);
+            $this->recomputeMetricNormality($metric);
+        }
+
+        $this->entityManager->flush();
+
+        return new JsonResponse([
+            'success' => true,
+            'canonicalName' => $metric->getCanonicalName() ?? $metric->getName(),
+            'value' => $metric->getValue(),
+            'isAboveNormal' => $metric->isAboveNormal(),
+            'isBelowNormal' => $metric->isBelowNormal(),
+        ]);
+    }
+
+    /**
+     * Удалить показатель (до подтверждения анализа и после).
+     */
+    #[Route('/{id}/metrics/{metricId}/delete', name: 'app_analysis_delete_metric', methods: ['POST'], requirements: ['id' => '\d+', 'metricId' => '\d+'])]
+    public function deleteMetric(int $id, int $metricId): JsonResponse
+    {
+        $user = $this->getCurrentUser();
+        if (!$user) {
+            return new JsonResponse(['error' => 'Не авторизован'], 401);
+        }
+
+        $analysis = $this->analysisRepository->findOneByIdAndUser($id, $user);
+        if (!$analysis) {
+            return new JsonResponse(['error' => 'Анализ не найден'], 404);
+        }
+
+        if ($analysis->getStatus() !== Analysis::STATUS_COMPLETED) {
+            return new JsonResponse(['error' => 'Анализ не в состоянии «завершён»'], 400);
+        }
+
+        $metric = $this->entityManager->find(Metric::class, $metricId);
+        if ($metric === null || $metric->getAnalysis()?->getId() !== $analysis->getId()) {
+            return new JsonResponse(['error' => 'Показатель не найден'], 404);
+        }
+
+        $analysis->removeMetric($metric);
+        $this->entityManager->remove($metric);
+        $this->entityManager->flush();
+
+        return new JsonResponse(['success' => true]);
+    }
+
+    /**
      * Скачать / открыть исходный загруженный файл.
      */
     #[Route('/{id}/file', name: 'app_analysis_original_file', methods: ['GET'], requirements: ['id' => '\d+'])]
@@ -473,6 +592,40 @@ class AnalysisController extends AbstractController
     {
         $validModels = array_column($this->availableModels, 'name');
         return in_array($model, $validModels, true);
+    }
+
+    /**
+     * После ручного изменения значения пересчитать ↑/↓ по референсу, если значение числовое.
+     */
+    private function recomputeMetricNormality(Metric $metric): void
+    {
+        $refMin = $metric->getReferenceMin();
+        $refMax = $metric->getReferenceMax();
+        if ($refMin === null && $refMax === null) {
+            return;
+        }
+
+        $vRaw = trim((string) $metric->getValue());
+        if ($vRaw === '') {
+            return;
+        }
+
+        $normalized = str_replace(',', '.', preg_replace('/\s+/', '', $vRaw) ?? '');
+        if ($normalized === '' || !is_numeric($normalized)) {
+            $metric->setIsAboveNormal(null);
+            $metric->setIsBelowNormal(null);
+
+            return;
+        }
+
+        $v = (float) $normalized;
+        $min = $refMin !== null ? (float) str_replace(',', '.', (string) $refMin) : null;
+        $max = $refMax !== null ? (float) str_replace(',', '.', (string) $refMax) : null;
+
+        $above = $max !== null && $v > $max;
+        $below = $min !== null && $v < $min;
+        $metric->setIsAboveNormal($above);
+        $metric->setIsBelowNormal($below);
     }
 
     /**
