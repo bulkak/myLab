@@ -83,6 +83,8 @@ cp deploy/.env.vps.example .env.vps
 ```
 
 Заполните `.env.vps` реальными значениями (`APP_SECRET`, OCR-ключи, домен).  
+Строку **`DATABASE_URL` в `.env.vps` задавать не нужно**: `docker-compose` собирает её из **`POSTGRES_USER`**, **`POSTGRES_PASSWORD`**, **`POSTGRES_DB`** — так приложение и контейнер Postgres всегда используют один пароль. Отдельная строка `DATABASE_URL` легко расходится с `POSTGRES_PASSWORD` и даёт `password authentication failed`.
+
 `APP_HTTP_PORT` — порт на хосте, на который смотрит nginx (по умолчанию в прод-override **80**, сайт открывается как `http://домен` без `:порта`). Для нестандартного порта укажите, например, `8090`.  
 `DEFAULT_URI` задайте без порта, если используете 80 (например `http://med.example.ru`).  
 `docker-compose.prod.yml` переводит приложение в `APP_ENV=prod` и задаёт `restart` для сервисов. Порты БД/кэша/очереди **не публикуются** в базовом `docker-compose.yml` (на VPS не должно быть `0.0.0.0:5432` после `ss -tlnp`). Для локального доступа к портам используйте `docker-compose.dev-ports.yml`.

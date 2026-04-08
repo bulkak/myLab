@@ -3,7 +3,7 @@ services:
     environment:
       APP_ENV: prod
       APP_SECRET: ${APP_SECRET:?APP_SECRET is required}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/mylab?serverVersion=16&charset=utf8}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-mylab}?serverVersion=16&charset=utf8}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       MESSENGER_TRANSPORT_DSN: ${MESSENGER_TRANSPORT_DSN:-amqp://guest:guest@rabbitmq:5672/%2f/messages}
       MESSENGER_TRANSPORT_OCR_DSN: ${MESSENGER_TRANSPORT_OCR_DSN:-amqp://guest:guest@rabbitmq:5672/%2f/ocr}
@@ -37,7 +37,7 @@ services:
     environment:
       APP_ENV: prod
       APP_SECRET: ${APP_SECRET:?APP_SECRET is required}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/mylab?serverVersion=16&charset=utf8}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-mylab}?serverVersion=16&charset=utf8}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       MESSENGER_TRANSPORT_DSN: ${MESSENGER_TRANSPORT_DSN:-amqp://guest:guest@rabbitmq:5672/%2f/messages}
       MESSENGER_TRANSPORT_OCR_DSN: ${MESSENGER_TRANSPORT_OCR_DSN:-amqp://guest:guest@rabbitmq:5672/%2f/ocr}
