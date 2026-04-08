@@ -1,0 +1,56 @@
+services:
+  app:
+    environment:
+      APP_ENV: prod
+      APP_SECRET: ${APP_SECRET:?APP_SECRET is required}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/mylab?serverVersion=16&charset=utf8}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      MESSENGER_TRANSPORT_DSN: ${MESSENGER_TRANSPORT_DSN:-amqp://guest:guest@rabbitmq:5672/%2f/messages}
+      MESSENGER_TRANSPORT_OCR_DSN: ${MESSENGER_TRANSPORT_OCR_DSN:-amqp://guest:guest@rabbitmq:5672/%2f/ocr}
+      UPLOAD_DIR: /var/www/uploads
+      MAX_UPLOAD_SIZE: ${MAX_UPLOAD_SIZE:-52428800}
+      TOTP_ISSUER: ${TOTP_ISSUER:-myLab}
+      DEFAULT_URI: ${DEFAULT_URI:-http://localhost}
+      GIGACHAT_AUTH_KEY: ${GIGACHAT_AUTH_KEY:-}
+      GIGACHAT_MODEL: ${GIGACHAT_MODEL:-GigaChat-Max}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_API_URL: ${OPENAI_API_URL:-https://api.apiyi.com/v1/chat/completions}
+      YANDEX_CLOUD_API_KEY: ${YANDEX_CLOUD_API_KEY:-}
+      YANDEX_CLOUD_FOLDER: ${YANDEX_CLOUD_FOLDER:-}
+    restart: unless-stopped
+
+  nginx:
+    ports:
+      - "${APP_HTTP_PORT:-8090}:80"
+    restart: unless-stopped
+
+  postgres:
+    ports: []
+    restart: unless-stopped
+
+  redis:
+    ports: []
+    restart: unless-stopped
+
+  rabbitmq:
+    ports: []
+    restart: unless-stopped
+
+  ocr-worker:
+    environment:
+      APP_ENV: prod
+      APP_SECRET: ${APP_SECRET:?APP_SECRET is required}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/mylab?serverVersion=16&charset=utf8}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      MESSENGER_TRANSPORT_DSN: ${MESSENGER_TRANSPORT_DSN:-amqp://guest:guest@rabbitmq:5672/%2f/messages}
+      MESSENGER_TRANSPORT_OCR_DSN: ${MESSENGER_TRANSPORT_OCR_DSN:-amqp://guest:guest@rabbitmq:5672/%2f/ocr}
+      UPLOAD_DIR: /var/www/uploads
+      MAX_UPLOAD_SIZE: ${MAX_UPLOAD_SIZE:-52428800}
+      TOTP_ISSUER: ${TOTP_ISSUER:-myLab}
+      GIGACHAT_AUTH_KEY: ${GIGACHAT_AUTH_KEY:-}
+      GIGACHAT_MODEL: ${GIGACHAT_MODEL:-GigaChat-Max}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_API_URL: ${OPENAI_API_URL:-https://api.apiyi.com/v1/chat/completions}
+      YANDEX_CLOUD_API_KEY: ${YANDEX_CLOUD_API_KEY:-}
+      YANDEX_CLOUD_FOLDER: ${YANDEX_CLOUD_FOLDER:-}
+    restart: unless-stopped

@@ -62,6 +62,77 @@ docker-compose exec app php bin/console doctrine:migrations:migrate --no-interac
 
 Первая регистрация: `/auth/register` — QR для TOTP, затем вход. Эмитент в приложении-аутентификаторе: `TOTP_ISSUER` (по умолчанию **myLab**).
 
+## Прод-деплой на VPS (docker compose, без потери данных)
+
+Ниже сценарий для VPS, где уже запущен другой сервис (например, AmneziaVPN): наружу публикуем только приложение, а БД/кэш/очередь оставляем внутри docker-сети.
+
+### 1) Подготовка сервера
+
+- Установите проект в постоянный путь, например `/opt/mylab`.
+- Проверьте, что внешний порт приложения не конфликтует с уже запущенными сервисами.
+- Создайте DNS `A`-запись домена на IP VPS.
+
+### 2) Прод-переменные окружения
+
+```bash
+cd /opt/mylab
+cp deploy/.env.vps.example .env.vps
+```
+
+Заполните `.env.vps` реальными значениями (`APP_SECRET`, OCR-ключи, порт, домен).  
+`docker-compose.prod.yml` переводит приложение в `APP_ENV=prod` и закрывает внешние порты `postgres`/`redis`/`rabbitmq`.
+
+### 3) Первый запуск
+
+После `git clone` файла `backend/.env` нет (он в `.gitignore`). Один раз создайте его:
+
+```bash
+cd /opt/mylab
+cp backend/.env.example backend/.env
+```
+
+Секреты провайдеров OCR задайте в `backend/.env.local` или через переменные в `.env.vps` / compose.
+
+```bash
+./deploy/first-deploy.sh ./.env.vps
+```
+
+Скрипт поднимет стек, дождется PostgreSQL, выполнит `composer install` и миграции.
+
+### 4) Обновление без потери данных
+
+```bash
+cd /opt/mylab
+./deploy/backup.sh ./.env.vps ./backups
+git pull
+set -a && source .env.vps && set +a
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T app php bin/console doctrine:migrations:migrate --no-interaction
+```
+
+Если на сервере нет подкоманды `docker compose`, используйте `docker-compose` вместо неё. Скрипты в `deploy/` сами выберут доступный вариант.
+
+Критично: **не выполняйте** `docker compose down -v` в проде — флаг `-v` удалит named volumes с БД/очередями.
+
+### 5) Перезапуск VPS и автоподъем контейнеров
+
+```bash
+sudo systemctl enable docker
+sudo systemctl restart docker
+```
+
+Все сервисы имеют `restart: unless-stopped`, поэтому после reboot должны подняться автоматически.
+
+### 6) Бэкапы и восстановление
+
+- Ежедневный бэкап: `./deploy/backup.sh ./.env.vps ./backups`
+- Инструкция восстановления: `deploy/restore.md`
+- Пример cron:
+
+```cron
+0 3 * * * cd /opt/mylab && /opt/mylab/deploy/backup.sh /opt/mylab/.env.vps /opt/mylab/backups >> /var/log/mylab-backup.log 2>&1
+```
+
 ### Чистая установка БД с нуля
 
 Удаляются **тома** Docker (`postgres_data`, `redis_data`, `rabbitmq_data`) — все пользователи, анализы и очереди. Затем контейнеры поднимаются заново и выполняются миграции.
@@ -96,12 +167,18 @@ docker-compose exec app php bin/console doctrine:migrations:migrate --no-interac
 ```
 mylab/   # корень проекта (раньше мог называться medical-analyzer)
 ├── docker-compose.yml
+├── docker-compose.prod.yml
 ├── docker/
 ├── backend/
 │   ├── src/
 │   ├── templates/
 │   └── migrations/
-└── uploads/
+├── uploads/
+└── deploy/
+    ├── lib-compose.sh
+    ├── first-deploy.sh
+    ├── backup.sh
+    └── restore.md
 ```
 
 ## Сервисы (Docker)
@@ -114,6 +191,8 @@ mylab/   # корень проекта (раньше мог называться
 | Redis         | `mylab-redis`    | localhost:6380 → 6379 в контейнере |
 | RabbitMQ UI   | `mylab-rabbitmq` | http://localhost:15673 (guest/guest) |
 | OCR worker    | `mylab-ocr-worker` | —                  |
+
+В production при запуске с `docker-compose.prod.yml` наружу публикуется только `nginx`.
 
 ## Полезные команды
 
@@ -143,6 +222,8 @@ docker-compose exec app php vendor/bin/phpunit tests/Unit/
 
 - Секреты не коммитить: используйте `backend/.env.local` или переменные окружения в проде.
 - Смените `APP_SECRET` для production.
+- Для VPS используйте отдельный `.env.vps` (см. `deploy/.env.vps.example`) и не храните его в git.
+- Если секреты ранее попадали в репозиторий, перевыпустите API-ключи у провайдеров.
 
 ## Лицензия
 

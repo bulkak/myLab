@@ -116,11 +116,6 @@ services:
       - UPLOAD_DIR=/var/www/uploads
     command: ["php", "bin/console", "messenger:consume", "ocr", "-vv"]
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
 
 volumes:
   postgres_data:
