@@ -377,78 +377,9 @@
     </script>
     
     {% if analysis.status == constant('App\\Entity\\Analysis::STATUS_COMPLETED') %}
-        <!-- OCR Results Comparison -->
-        <div class="ocr-comparison">
-            {% if analysis.ocrRawText %}
-                <div class="ocr-section">
-                    <h3>🤖 Результат распознавания (Сырой JSON)</h3>
-                    <div class="ocr-text">{{ analysis.ocrRawText|raw }}</div>
-                </div>
-            {% endif %}
-            
-            <!-- Show debug images if available -->
-            {% if analysis.debugImagesPaths %}
-            <div class="ocr-section">
-                <h3 style="margin-top: 0; color: #333;">📸 Изображение документа</h3>
-                <p style="color: #666; font-size: 14px; margin: 10px 0;">Вот как модель видела документ:</p>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
-                    {% set debugFilenames = analysis.debugImagesPathsArray %}
-                    {% if debugFilenames|length > 0 %}
-                        {% for rel in debugFilenames %}
-                        {% set previewBase = rel|split('/')|last %}
-                        <div style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden; background: white;">
-                            <img src="{{ path('app_analysis_document_preview', {id: analysis.id, filename: previewBase}) }}" style="width: 100%; height: auto; display: block;" alt="Страница документа" loading="lazy">
-                            <div style="padding: 8px; font-size: 12px; color: #666; border-top: 1px solid #eee; word-break: break-all;">
-                                {{ previewBase }}
-                            </div>
-                        </div>
-                        {% endfor %}
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
-        </div>
+        {# Порядок: 1) Исходный файл + дата — выше; 2) Показатели; 3) Перераспознать; 4) Изображение; 5) Сырой JSON #}
 
-        <!-- Model Selector for Reprocessing -->
-        {% if available_models is defined and available_models|length > 0 %}
-        <div class="card model-selector" id="reprocess-section">
-            <h4>🔄 Перераспознать с другой моделью</h4>
-            <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
-                Выберите другую модель OCR для сравнения результатов или улучшения точности распознавания.
-            </p>
-            
-            <select id="model-select" class="model-select" name="model">
-                <option value="">— Выберите модель —</option>
-                {% for model in available_models %}
-                    <option value="{{ model.name }}" 
-                            data-ram="{{ model.ram_gb }}"
-                            data-desc="{{ model.description }}">
-                        {{ model.label }} ({{ model.ram_gb }} GB RAM)
-                    </option>
-                {% endfor %}
-            </select>
-            
-            <div id="model-info" class="model-info" style="display: none;">
-                <strong id="model-name"></strong><br>
-                <span id="model-description"></span><br>
-                <small>Требуется RAM: <span id="model-ram"></span> GB</small>
-            </div>
-            
-            <button id="reprocess-btn" class="reprocess-button" 
-                    hx-post="{{ path('app_analysis_reprocess', {id: analysis.id}) }}"
-                    hx-swap="innerHTML"
-                    hx-target="#reprocess-status"
-                    hx-include="#model-select"
-                    hx-headers='{"Accept": "application/json"}'
-                    disabled>
-                Перераспознать документ
-            </button>
-            
-            <div id="reprocess-status" class="reprocess-status"></div>
-        </div>
-        {% endif %}
-
-        <!-- Extracted Metrics -->
+        <!-- 2) Показатели -->
         <div class="card metrics-section">
             <h3>Показатели</h3>
             <p style="color:#666; font-size: 14px; margin: 0 0 12px 0;">Распознанные моделью и добавленные вручную.</p>
@@ -551,6 +482,78 @@
             <a href="{{ path('app_history') }}" class="btn secondary">← К истории</a>
             <a href="{{ path('app_upload') }}" class="btn">Загрузить еще</a>
         </div>
+
+        <!-- 3) Перераспознать с другой моделью -->
+        {% if available_models is defined and available_models|length > 0 %}
+        <div class="card model-selector" id="reprocess-section" style="margin-top: 24px;">
+            <h4>🔄 Перераспознать с другой моделью</h4>
+            <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                Выберите другую модель OCR для сравнения результатов или улучшения точности распознавания.
+            </p>
+
+            <select id="model-select" class="model-select" name="model">
+                <option value="">— Выберите модель —</option>
+                {% for model in available_models %}
+                    <option value="{{ model.name }}"
+                            data-ram="{{ model.ram_gb }}"
+                            data-desc="{{ model.description }}">
+                        {{ model.label }} ({{ model.ram_gb }} GB RAM)
+                    </option>
+                {% endfor %}
+            </select>
+
+            <div id="model-info" class="model-info" style="display: none;">
+                <strong id="model-name"></strong><br>
+                <span id="model-description"></span><br>
+                <small>Требуется RAM: <span id="model-ram"></span> GB</small>
+            </div>
+
+            <button id="reprocess-btn" class="reprocess-button"
+                    hx-post="{{ path('app_analysis_reprocess', {id: analysis.id}) }}"
+                    hx-swap="innerHTML"
+                    hx-target="#reprocess-status"
+                    hx-include="#model-select"
+                    hx-headers='{"Accept": "application/json"}'
+                    disabled>
+                Перераспознать документ
+            </button>
+
+            <div id="reprocess-status" class="reprocess-status"></div>
+        </div>
+        {% endif %}
+
+        <!-- 4) Изображение документа; 5) Сырой JSON -->
+        {% if analysis.debugImagesPaths or analysis.ocrRawText %}
+        <div class="ocr-comparison" style="margin-top: 24px;">
+            {% if analysis.debugImagesPaths %}
+            <div class="ocr-section">
+                <h3 style="margin-top: 0; color: #333;">📸 Изображение документа</h3>
+                <p style="color: #666; font-size: 14px; margin: 10px 0;">Вот как модель видела документ:</p>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                    {% set debugFilenames = analysis.debugImagesPathsArray %}
+                    {% if debugFilenames|length > 0 %}
+                        {% for rel in debugFilenames %}
+                        {% set previewBase = rel|split('/')|last %}
+                        <div style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden; background: white;">
+                            <img src="{{ path('app_analysis_document_preview', {id: analysis.id, filename: previewBase}) }}" style="width: 100%; height: auto; display: block;" alt="Страница документа" loading="lazy">
+                            <div style="padding: 8px; font-size: 12px; color: #666; border-top: 1px solid #eee; word-break: break-all;">
+                                {{ previewBase }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if analysis.ocrRawText %}
+                <div class="ocr-section">
+                    <h3>🤖 Результат распознавания (Сырой JSON)</h3>
+                    <div class="ocr-text">{{ analysis.ocrRawText|raw }}</div>
+                </div>
+            {% endif %}
+        </div>
+        {% endif %}
 
     {% elseif analysis.status == constant('App\\Entity\\Analysis::STATUS_PROCESSING') %}
         <div class="card" style="text-align: center; padding: 60px 20px;">
