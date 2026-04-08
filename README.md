@@ -18,7 +18,7 @@
 - **Кэш / сессии:** Redis 7  
 - **Очередь:** RabbitMQ 3.13 (контейнер `mylab-ocr-worker`)  
 - **PDF → изображения:** Poppler (`pdftoppm`), по умолчанию PNG, 250 DPI, `-cropbox`  
-- **Frontend:** Twig, HTMX, Chart.js
+- **Frontend:** Twig, HTMX, Chart.js  
 
 ## Ссылки на показатели в URL
 
@@ -33,13 +33,11 @@
 
 Центральная точка — `OcrManager`. Доступные модели задаются в UI и в `AnalysisController`; движок подбирается по модели.
 
-
-| Провайдер          | Класс                  | Примечание                                                                           |
-| ------------------ | ---------------------- | ------------------------------------------------------------------------------------ |
-| Yandex Cloud       | `YandexCloudOcrEngine` | Мультимодальная модель (например `qwen3.5-35b-a3b-fp8/latest`), два шага: CSV + дата |
-| GigaChat           | `GigaChatOcrEngine`    | По страницам PDF: CSV + дата                                                         |
-| OpenAI-совместимый | `OpenAiOcrEngine`      | Через шлюз (например APIYI), `gpt-4o`, та же схема CSV + дата                        |
-
+| Провайдер        | Класс                 | Примечание |
+|-----------------|------------------------|------------|
+| Yandex Cloud    | `YandexCloudOcrEngine` | Мультимодальная модель (например `qwen3.5-35b-a3b-fp8/latest`), два шага: CSV + дата |
+| GigaChat        | `GigaChatOcrEngine`    | По страницам PDF: CSV + дата |
+| OpenAI-совместимый | `OpenAiOcrEngine`   | Через шлюз (например APIYI), `gpt-4o`, та же схема CSV + дата |
 
 Модель по умолчанию для новых задач задаётся в `config/services.yaml` → аргумент `$defaultModel` у `App\Service\OcrManager`.
 
@@ -55,12 +53,15 @@
 
 ```bash
 cd mylab   # или имя вашей папки клона
-docker-compose up -d
-docker-compose exec app composer install --no-interaction --prefer-dist --optimize-autoloader
-docker-compose exec app php bin/console doctrine:migrations:migrate --no-interaction
+docker compose up -d
+docker compose exec app composer install --no-interaction --prefer-dist --optimize-autoloader
+docker compose exec app php bin/console doctrine:migrations:migrate --no-interaction
 ```
 
-Приложение: **[http://localhost:8090](http://localhost:8090)**
+Приложение: **http://localhost:8090**
+
+Порты Postgres / Redis / RabbitMQ **не** пробрасываются на хост по умолчанию (безопаснее). Подключаться к БД: `docker compose exec postgres psql -U postgres -d mylab`. Если нужны клиенты с хоста (DBeaver и т.д.), поднимите с дополнительным файлом:  
+`docker compose -f docker-compose.yml -f docker-compose.dev-ports.yml up -d`
 
 Первая регистрация: `/auth/register` — QR для TOTP, затем вход. Эмитент в приложении-аутентификаторе: `TOTP_ISSUER` (по умолчанию **myLab**).
 
@@ -84,7 +85,7 @@ cp deploy/.env.vps.example .env.vps
 Заполните `.env.vps` реальными значениями (`APP_SECRET`, OCR-ключи, домен).  
 `APP_HTTP_PORT` — порт на хосте, на который смотрит nginx (по умолчанию в прод-override **80**, сайт открывается как `http://домен` без `:порта`). Для нестандартного порта укажите, например, `8090`.  
 `DEFAULT_URI` задайте без порта, если используете 80 (например `http://med.example.ru`).  
-`docker-compose.prod.yml` переводит приложение в `APP_ENV=prod` и закрывает внешние порты `postgres`/`redis`/`rabbitmq`.
+`docker-compose.prod.yml` переводит приложение в `APP_ENV=prod` и задаёт `restart` для сервисов. Порты БД/кэша/очереди **не публикуются** в базовом `docker-compose.yml` (на VPS не должно быть `0.0.0.0:5432` после `ss -tlnp`). Для локального доступа к портам используйте `docker-compose.dev-ports.yml`.
 
 ### 3) Первый запуск
 
@@ -152,9 +153,9 @@ docker compose --env-file .env.vps -f docker-compose.yml -f docker-compose.prod.
 docker compose --env-file .env.vps -f docker-compose.yml -f docker-compose.prod.yml restart ocr-worker
 ```
 
-Если используете только `**docker-compose**` (v1), замените везде `docker compose` на `docker-compose` с тем же `**--env-file .env.vps**`.
+Если используете только **`docker-compose`** (v1), замените везде `docker compose` на `docker-compose` с тем же **`--env-file .env.vps`**.
 
-Подстановка `${APP_SECRET:?…}` в `docker-compose.prod.yml` берётся из `**.env.vps**`: используйте `**--env-file .env.vps**` (как выше) или заранее `set -a && source .env.vps && set +a`. По умолчанию Compose подставляет переменные только из файла `**.env**` в корне проекта, а не из `.env.vps`.
+Подстановка `${APP_SECRET:?…}` в `docker-compose.prod.yml` берётся из **`.env.vps`**: используйте **`--env-file .env.vps`** (как выше) или заранее `set -a && source .env.vps && set +a`. По умолчанию Compose подставляет переменные только из файла **`.env`** в корне проекта, а не из `.env.vps`.
 
 Скрипты в `deploy/` передают `--env-file` автоматически.
 
@@ -231,18 +232,16 @@ mylab/   # корень проекта (раньше мог называться
 
 ## Сервисы (Docker)
 
+| Сервис        | Контейнер        | URL / порт с хоста   |
+|---------------|------------------|----------------------|
+| Приложение    | `mylab-nginx`    | локально: http://localhost:8090; VPS + `docker-compose.prod.yml`: порт из `APP_HTTP_PORT` (по умолчанию **80**) |
+| PHP-FPM       | `mylab-app`      | —                    |
+| PostgreSQL    | `mylab-postgres` | с хоста **без** `docker-compose.dev-ports.yml` — только `docker compose exec postgres …`; с dev-файлом: localhost:**5432** |
+| Redis         | `mylab-redis`    | без dev-файла — нет порта; с `dev-ports`: localhost:**6380** → 6379 в контейнере |
+| RabbitMQ UI   | `mylab-rabbitmq` | без dev-файла — нет; с `dev-ports`: http://localhost:15673 |
+| OCR worker    | `mylab-ocr-worker` | —                  |
 
-| Сервис      | Контейнер          | URL / порт с хоста                                                                                                                       |
-| ----------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Приложение  | `mylab-nginx`      | локально: [http://localhost:8090](http://localhost:8090); VPS + `docker-compose.prod.yml`: порт из `APP_HTTP_PORT` (по умолчанию **80**) |
-| PHP-FPM     | `mylab-app`        | —                                                                                                                                        |
-| PostgreSQL  | `mylab-postgres`   | localhost:5432                                                                                                                           |
-| Redis       | `mylab-redis`      | localhost:6380 → 6379 в контейнере                                                                                                       |
-| RabbitMQ UI | `mylab-rabbitmq`   | [http://localhost:15673](http://localhost:15673) (guest/guest)                                                                           |
-| OCR worker  | `mylab-ocr-worker` | —                                                                                                                                        |
-
-
-В production при запуске с `docker-compose.prod.yml` наружу публикуется только `nginx`.
+В production при запуске с `docker-compose.prod.yml` наружу публикуется только **nginx** (БД/Redis/RabbitMQ остаются во внутренней сети Docker).
 
 ## Полезные команды
 

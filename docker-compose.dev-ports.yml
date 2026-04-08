@@ -1,0 +1,16 @@
+# Локальная разработка: проброс Postgres / Redis / RabbitMQ на хост (DBeaver, redis-cli, UI RabbitMQ).
+# На VPS с prod НЕ подключайте этот файл.
+#
+# docker compose -f docker-compose.yml -f docker-compose.dev-ports.yml up -d
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+  redis:
+    ports:
+      - "6380:6379"
+  rabbitmq:
+    ports:
+      - "5673:5672"
+      - "15673:15672"

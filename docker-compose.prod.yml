@@ -25,15 +25,12 @@ services:
     restart: unless-stopped
 
   postgres:
-    ports: []
     restart: unless-stopped
 
   redis:
-    ports: []
     restart: unless-stopped
 
   rabbitmq:
-    ports: []
     restart: unless-stopped
 
   ocr-worker:

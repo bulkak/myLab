@@ -48,8 +48,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-mylab}
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -64,8 +62,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: mylab-redis
-    ports:
-      - "6380:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -74,9 +70,6 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: mylab-rabbitmq
-    ports:
-      - "5673:5672"
-      - "15673:15672"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-guest}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-guest}
