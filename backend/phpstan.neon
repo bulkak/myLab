@@ -1,0 +1,17 @@
+# Уровень max — максимальная строгость PHPStan.
+# После `php bin/console cache:warmup --env=dev` можно раскомментировать блок symfony
+# для подсказок по сервисам из DI-контейнера (иначе файл контейнера может отсутствовать).
+
+includes:
+    - vendor/phpstan/phpstan-symfony/extension.neon
+    - vendor/phpstan/phpstan-symfony/rules.neon
+    - vendor/phpstan/phpstan-doctrine/extension.neon
+    - vendor/phpstan/phpstan-doctrine/rules.neon
+
+parameters:
+    level: max
+    paths:
+        - src
+
+#    symfony:
+#        containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
