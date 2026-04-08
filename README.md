@@ -157,6 +157,8 @@ docker compose --env-file .env.vps -f docker-compose.yml -f docker-compose.prod.
 
 Если используете только **`docker-compose`** (v1), замените везде `docker compose` на `docker-compose` с тем же **`--env-file .env.vps`**.
 
+У плагина **`docker compose`**: глобальные флаги (`--env-file`, `-f`) идут **до** подкоманды (`up`, `exec`, …). Пример: `docker compose --env-file .env.vps -f docker-compose.yml exec app …`. Если написать `docker compose exec app … --env-file`, получите ошибку `unknown flag: --env-file`.
+
 Подстановка `${APP_SECRET:?…}` в `docker-compose.prod.yml` берётся из **`.env.vps`**: используйте **`--env-file .env.vps`** (как выше) или заранее `set -a && source .env.vps && set +a`. По умолчанию Compose подставляет переменные только из файла **`.env`** в корне проекта, а не из `.env.vps`.
 
 Скрипты в `deploy/` передают `--env-file` автоматически.
