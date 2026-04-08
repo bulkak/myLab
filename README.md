@@ -70,18 +70,20 @@ docker-compose exec app php bin/console doctrine:migrations:migrate --no-interac
 
 ### 1) Подготовка сервера
 
-- Установите проект в постоянный путь, например `/opt/mylab`.
+- Установите проект в постоянный путь, например `/opt/mylab/myLab`.
 - Проверьте, что внешний порт приложения не конфликтует с уже запущенными сервисами.
 - Создайте DNS `A`-запись домена на IP VPS.
 
 ### 2) Прод-переменные окружения
 
 ```bash
-cd /opt/mylab
+cd /opt/mylab/myLab
 cp deploy/.env.vps.example .env.vps
 ```
 
-Заполните `.env.vps` реальными значениями (`APP_SECRET`, OCR-ключи, порт, домен).  
+Заполните `.env.vps` реальными значениями (`APP_SECRET`, OCR-ключи, домен).  
+`APP_HTTP_PORT` — порт на хосте, на который смотрит nginx (по умолчанию в прод-override **80**, сайт открывается как `http://домен` без `:порта`). Для нестандартного порта укажите, например, `8090`.  
+`DEFAULT_URI` задайте без порта, если используете 80 (например `http://med.example.ru`).  
 `docker-compose.prod.yml` переводит приложение в `APP_ENV=prod` и закрывает внешние порты `postgres`/`redis`/`rabbitmq`.
 
 ### 3) Первый запуск
@@ -89,7 +91,7 @@ cp deploy/.env.vps.example .env.vps
 После `git clone` файла `backend/.env` нет (он в `.gitignore`). Один раз создайте его:
 
 ```bash
-cd /opt/mylab
+cd /opt/mylab/myLab
 cp backend/.env.example backend/.env
 ```
 
@@ -103,17 +105,58 @@ cp backend/.env.example backend/.env
 
 ### 4) Обновление без потери данных
 
+Короткий вариант (бэкап → pull → образа → миграции):
+
 ```bash
-cd /opt/mylab
+cd /opt/mylab/myLab   # ваш каталог с репозиторием
 ./deploy/backup.sh ./.env.vps ./backups
 git pull
 docker compose --env-file .env.vps -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 docker compose --env-file .env.vps -f docker-compose.yml -f docker-compose.prod.yml exec -T app php bin/console doctrine:migrations:migrate --no-interaction
 ```
 
+#### Полное обновление на VPS после `git pull`
+
+Чтобы подтянуть и код, и зависимости PHP, и схему БД, и кэш Symfony (удобно после крупных обновлений):
+
+```bash
+cd /opt/mylab/myLab
+
+# по желанию — снимок перед обновлением
+./deploy/backup.sh ./.env.vps ./backups
+
+git pull
+
+# Symfony ожидает backend/.env (не в git); если файла нет — один раз:
+test -f backend/.env || cp backend/.env.example backend/.env
+
+# пересобрать образы и поднять контейнеры
+docker compose --env-file .env.vps -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+# зависимости и автоскрипты Composer
+docker compose --env-file .env.vps -f docker-compose.yml -f docker-compose.prod.yml exec -T app \
+  composer install --no-interaction --prefer-dist --optimize-autoloader
+
+# миграции БД
+docker compose --env-file .env.vps -f docker-compose.yml -f docker-compose.prod.yml exec -T app \
+  php bin/console doctrine:migrations:migrate --no-interaction
+
+# сброс prod-кэша Symfony
+docker compose --env-file .env.vps -f docker-compose.yml -f docker-compose.prod.yml exec -T app \
+  php bin/console cache:clear --env=prod --no-warmup
+
+docker compose --env-file .env.vps -f docker-compose.yml -f docker-compose.prod.yml exec -T app \
+  php bin/console cache:warmup --env=prod
+
+# воркер OCR перезапустить (подхватит код и env)
+docker compose --env-file .env.vps -f docker-compose.yml -f docker-compose.prod.yml restart ocr-worker
+```
+
+Если используете только `**docker-compose**` (v1), замените везде `docker compose` на `docker-compose` с тем же `**--env-file .env.vps**`.
+
 Подстановка `${APP_SECRET:?…}` в `docker-compose.prod.yml` берётся из `**.env.vps**`: используйте `**--env-file .env.vps**` (как выше) или заранее `set -a && source .env.vps && set +a`. По умолчанию Compose подставляет переменные только из файла `**.env**` в корне проекта, а не из `.env.vps`.
 
-Если на сервере нет подкоманды `docker compose`, используйте `docker-compose` с тем же `--env-file .env.vps`. Скрипты в `deploy/` передают файл окружения автоматически.
+Скрипты в `deploy/` передают `--env-file` автоматически.
 
 Критично: **не выполняйте** `docker compose down -v` в проде — флаг `-v` удалит named volumes с БД/очередями.
 
@@ -133,8 +176,10 @@ sudo systemctl restart docker
 - Пример cron:
 
 ```cron
-0 3 * * * cd /opt/mylab && /opt/mylab/deploy/backup.sh /opt/mylab/.env.vps /opt/mylab/backups >> /var/log/mylab-backup.log 2>&1
+0 3 * * * cd /opt/mylab/myLab && /opt/mylab/myLab/deploy/backup.sh /opt/mylab/myLab/.env.vps /opt/mylab/myLab/backups >> /var/log/mylab-backup.log 2>&1
 ```
+
+Путь `cd` и к скрипту замените на свой, если клон лежит не в `/opt/mylab/myLab`.
 
 ### Чистая установка БД с нуля
 
@@ -187,14 +232,14 @@ mylab/   # корень проекта (раньше мог называться
 ## Сервисы (Docker)
 
 
-| Сервис      | Контейнер          | URL / порт с хоста                                             |
-| ----------- | ------------------ | -------------------------------------------------------------- |
-| Приложение  | `mylab-nginx`      | [http://localhost:8090](http://localhost:8090)                 |
-| PHP-FPM     | `mylab-app`        | —                                                              |
-| PostgreSQL  | `mylab-postgres`   | localhost:5432                                                 |
-| Redis       | `mylab-redis`      | localhost:6380 → 6379 в контейнере                             |
-| RabbitMQ UI | `mylab-rabbitmq`   | [http://localhost:15673](http://localhost:15673) (guest/guest) |
-| OCR worker  | `mylab-ocr-worker` | —                                                              |
+| Сервис      | Контейнер          | URL / порт с хоста                                                                                                                       |
+| ----------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Приложение  | `mylab-nginx`      | локально: [http://localhost:8090](http://localhost:8090); VPS + `docker-compose.prod.yml`: порт из `APP_HTTP_PORT` (по умолчанию **80**) |
+| PHP-FPM     | `mylab-app`        | —                                                                                                                                        |
+| PostgreSQL  | `mylab-postgres`   | localhost:5432                                                                                                                           |
+| Redis       | `mylab-redis`      | localhost:6380 → 6379 в контейнере                                                                                                       |
+| RabbitMQ UI | `mylab-rabbitmq`   | [http://localhost:15673](http://localhost:15673) (guest/guest)                                                                           |
+| OCR worker  | `mylab-ocr-worker` | —                                                                                                                                        |
 
 
 В production при запуске с `docker-compose.prod.yml` наружу публикуется только `nginx`.

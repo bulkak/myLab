@@ -19,10 +19,10 @@ services:
       rabbitmq:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/mylab?serverVersion=16&charset=utf8
-      - REDIS_URL=redis://redis:6379
-      - MESSENGER_TRANSPORT_DSN=amqp://guest:guest@rabbitmq:5672/%2f/messages
-      - MESSENGER_TRANSPORT_OCR_DSN=amqp://guest:guest@rabbitmq:5672/%2f/ocr
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/mylab?serverVersion=16&charset=utf8}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - MESSENGER_TRANSPORT_DSN=${MESSENGER_TRANSPORT_DSN:-amqp://guest:guest@rabbitmq:5672/%2f/messages}
+      - MESSENGER_TRANSPORT_OCR_DSN=${MESSENGER_TRANSPORT_OCR_DSN:-amqp://guest:guest@rabbitmq:5672/%2f/ocr}
       - UPLOAD_DIR=/var/www/uploads
     restart: unless-stopped
 
@@ -45,9 +45,9 @@ services:
     image: postgres:16-alpine
     container_name: mylab-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: mylab
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-mylab}
     ports:
       - "5432:5432"
     volumes:
@@ -55,7 +55,7 @@ services:
     networks:
       - mylab-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-mylab} || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -78,8 +78,8 @@ services:
       - "5673:5672"
       - "15673:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-guest}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
@@ -109,10 +109,10 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/mylab?serverVersion=16&charset=utf8
-      - REDIS_URL=redis://redis:6379
-      - MESSENGER_TRANSPORT_DSN=amqp://guest:guest@rabbitmq:5672/%2f/messages
-      - MESSENGER_TRANSPORT_OCR_DSN=amqp://guest:guest@rabbitmq:5672/%2f/ocr
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/mylab?serverVersion=16&charset=utf8}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - MESSENGER_TRANSPORT_DSN=${MESSENGER_TRANSPORT_DSN:-amqp://guest:guest@rabbitmq:5672/%2f/messages}
+      - MESSENGER_TRANSPORT_OCR_DSN=${MESSENGER_TRANSPORT_OCR_DSN:-amqp://guest:guest@rabbitmq:5672/%2f/ocr}
       - UPLOAD_DIR=/var/www/uploads
     command: ["php", "bin/console", "messenger:consume", "ocr", "-vv"]
     restart: unless-stopped

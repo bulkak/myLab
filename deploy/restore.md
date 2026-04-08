@@ -57,3 +57,4 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```cron
 0 3 * * * cd /opt/mylab && /opt/mylab/deploy/backup.sh /opt/mylab/.env.vps /opt/mylab/backups >> /var/log/mylab-backup.log 2>&1
 ```
+
