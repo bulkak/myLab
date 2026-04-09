@@ -6,11 +6,9 @@ namespace App\Twig;
 
 use App\Util\MetricDynamicsToken;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
-use Symfony\TwigBundle\Attribute\AsTwigExtension;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
-#[AsTwigExtension]
 final class MetricNameUrlExtension extends AbstractExtension
 {
     public function __construct(

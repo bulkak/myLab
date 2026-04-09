@@ -53,4 +53,12 @@ interface OcrEngineInterface
      * @return bool True if this engine can process the model
      */
     public function supportsModel(string $model): bool;
+
+    /**
+     * Get model info.
+     *
+     * @param string $model The model name
+     * @return array<string, mixed>|null Model info or null if not found
+     */
+    public function getModelInfo(string $model): ?array;
 }

@@ -20,6 +20,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 use Psr\Log\LoggerInterface;
 
@@ -544,7 +545,7 @@ class AnalysisController extends AbstractController
     {
         $user = $this->getCurrentUser();
         if (!$user) {
-            throw $this->createAccessDeniedException();
+            return new JsonResponse(['error' => 'Access denied'], 403);
         }
 
         $analysis = $this->analysisRepository->findOneByIdAndUser($id, $user);

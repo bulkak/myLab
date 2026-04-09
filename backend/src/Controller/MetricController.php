@@ -22,7 +22,8 @@ class MetricController extends AbstractController
         Request $request,
         MetricRepository $metricRepository,
         UserRepository $userRepository,
-        AuthSessionService $sessionService
+        AuthSessionService $sessionService,
+        EntityManagerInterface $entityManager
     ): JsonResponse {
         $userId = $sessionService->getUserId();
         if (!$userId) {
@@ -36,7 +37,7 @@ class MetricController extends AbstractController
 
         $query = $request->query->get('q', '');
         
-        $conn = $metricRepository->getEntityManager()->getConnection();
+        $conn = $entityManager->getConnection();
         $sql = '
             SELECT DISTINCT COALESCE(NULLIF(m.canonical_name, \'\'), m.name) as name
             FROM metrics m
