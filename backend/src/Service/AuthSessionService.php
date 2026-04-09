@@ -11,7 +11,7 @@ class AuthSessionService
 {
     private const SESSION_USER_ID = 'auth_user_id';
     private const SESSION_EXPIRES = 'auth_expires_at';
-    private const SESSION_LIFETIME = 86400; // 24 hours
+    private const SESSION_LIFETIME = 604800; // 7 days
 
     private RequestStack $requestStack;
     private UserRepository $userRepository;
