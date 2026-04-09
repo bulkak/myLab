@@ -26,9 +26,11 @@ class ApiLog
     #[ORM\Column(length: 255)]
     private ?string $endpoint = null;
 
+    /** @var array<string, mixed>|null */
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $requestData = null;
 
+    /** @var array<string, mixed>|null */
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $responseData = null;
 
@@ -90,11 +92,13 @@ class ApiLog
         return $this;
     }
 
+    /** @return array<string, mixed>|null */
     public function getRequestData(): ?array
     {
         return $this->requestData;
     }
 
+    /** @param array<string, mixed>|null $requestData */
     public function setRequestData(?array $requestData): static
     {
         $this->requestData = $requestData;
@@ -102,11 +106,13 @@ class ApiLog
         return $this;
     }
 
+    /** @return array<string, mixed>|null */
     public function getResponseData(): ?array
     {
         return $this->responseData;
     }
 
+    /** @param array<string, mixed>|null $responseData */
     public function setResponseData(?array $responseData): static
     {
         $this->responseData = $responseData;

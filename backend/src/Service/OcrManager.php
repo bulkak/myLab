@@ -30,6 +30,8 @@ class OcrManager
 
     /**
      * Supported image MIME types that don't need conversion.
+     *
+     * @var array<int, string>
      */
     private array $imageMimeTypes = [
         'image/png',
@@ -119,7 +121,7 @@ class OcrManager
         $parsed = $this->parseOcrResult($ocrResult);
 
         $this->logger->info("OCR processing complete", [
-            'metrics_count' => count($parsed['metrics'] ?? []),
+            'metrics_count' => count($parsed['metrics']),
         ]);
 
         return $parsed;
@@ -238,6 +240,8 @@ class OcrManager
 
     /**
      * Parse OCR result and extract JSON data.
+     *
+     * @return array{title: string|null, analysisDate: \DateTimeImmutable|null, metrics: array<int, array<string, mixed>>, notes: string|null}
      */
     private function parseOcrResult(string $ocrResult): array
     {
@@ -346,6 +350,9 @@ class OcrManager
 
     /**
      * Normalize metrics array.
+     *
+     * @param array<int, mixed> $metrics
+     * @return array<int, array<string, mixed>>
      */
     private function normalizeMetrics(array $metrics): array
     {
@@ -377,6 +384,8 @@ class OcrManager
 
     /**
      * Normalize value to string.
+     *
+     * @param mixed $value
      */
     private function normalizeValue($value): string
     {
@@ -390,6 +399,8 @@ class OcrManager
 
     /**
      * Normalize numeric value.
+     *
+     * @param mixed $value
      */
     private function normalizeNumericValue($value): ?string
     {
@@ -410,6 +421,8 @@ class OcrManager
 
     /**
      * Normalize boolean value.
+     *
+     * @param mixed $value
      */
     private function normalizeBoolean($value): ?bool
     {

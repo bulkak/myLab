@@ -74,6 +74,8 @@ class MetricAliasRepository extends ServiceEntityRepository
 
     /**
      * Get all canonical names for a user (for autocomplete)
+     *
+     * @return array<int, string>
      */
     public function getCanonicalNames(User $user): array
     {

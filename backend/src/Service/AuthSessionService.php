@@ -104,6 +104,8 @@ class AuthSessionService
 
     /**
      * Get registration data
+     *
+     * @return array{username: string, secret: string}|null
      */
     public function getRegistrationData(): ?array
     {

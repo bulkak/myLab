@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Analysis;
+use App\Entity\Metric;
 use App\Entity\User;
 use App\Repository\AnalysisRepository;
 use App\Repository\MetricRepository;
@@ -197,6 +198,9 @@ class HistoryController extends AbstractController
 
     /**
      * Prepare chart data from metrics
+     *
+     * @param array<int, Metric> $metrics
+     * @return array<int, array{date: string, dateDisplay: string, value: float|null, rawValue: string, unit: string|null}>
      */
     private function prepareChartData(array $metrics): array
     {

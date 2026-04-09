@@ -75,6 +75,8 @@ class MetricRepository extends ServiceEntityRepository
 
     /**
      * Get all unique metric names for a user (for autocomplete)
+     *
+     * @return array<int, array{name: string}>
      */
     public function getUniqueMetricNames(User $user): array
     {

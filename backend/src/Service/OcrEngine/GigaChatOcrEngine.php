@@ -16,6 +16,7 @@ class GigaChatOcrEngine implements OcrEngineInterface
     private const AUTH_URL = 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth';
     private const API_URL = 'https://gigachat.devices.sberbank.ru/api/v1';
 
+    /** @var array<string, array{name: string, ram_gb: int, best_for: string}> */
     private array $supportedModels = [
         'GigaChat-Pro' => [
             'name' => 'GigaChat-Pro',
@@ -246,6 +247,9 @@ class GigaChatOcrEngine implements OcrEngineInterface
         }
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
     private function csvToMetrics(string $csvText): array
     {
         // Очищаем от возможных блоков кода (если модель вернула ```csv ... ```)

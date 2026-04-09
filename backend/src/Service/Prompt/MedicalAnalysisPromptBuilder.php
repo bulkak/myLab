@@ -20,6 +20,8 @@ class MedicalAnalysisPromptBuilder implements PromptBuilderInterface
     /**
      * Model-specific prompt optimizations.
      * All prompts emphasize Russian medical terminology recognition.
+     *
+     * @var array<string, string>
      */
     private array $modelPrompts = [
         'csv' => <<<PROMPT

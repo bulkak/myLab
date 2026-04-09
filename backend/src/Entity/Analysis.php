@@ -53,6 +53,7 @@ class Analysis
     #[ORM\Column(type: 'boolean', options: ['default' => false])]
     private bool $isConfirmed = false;
 
+    /** @var Collection<int, Metric> */
     #[ORM\OneToMany(mappedBy: 'analysis', targetEntity: Metric::class, orphanRemoval: true)]
     private Collection $metrics;
 

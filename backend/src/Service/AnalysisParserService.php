@@ -15,6 +15,8 @@ class AnalysisParserService
 
     /**
      * Parse OCR result and extract structured data
+     *
+     * @return array{title: string|null, analysisDate: \DateTimeImmutable|null, metrics: array<int, array<string, mixed>>, notes: string|null}
      */
     public function parse(string $ocrResult): array
     {
@@ -114,6 +116,9 @@ class AnalysisParserService
 
     /**
      * Normalize a metric from OCR data
+     *
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>|null
      */
     private function normalizeMetric(array $data): ?array
     {
@@ -148,6 +153,8 @@ class AnalysisParserService
 
     /**
      * Normalize value to string
+     *
+     * @param mixed $value
      */
     private function normalizeValue($value): string
     {
@@ -164,6 +171,8 @@ class AnalysisParserService
 
     /**
      * Normalize numeric value for database storage
+     *
+     * @param mixed $value
      */
     private function normalizeNumericValue($value): ?string
     {
@@ -189,6 +198,8 @@ class AnalysisParserService
 
     /**
      * Normalize boolean value
+     *
+     * @param mixed $value
      */
     private function normalizeBoolean($value): ?bool
     {

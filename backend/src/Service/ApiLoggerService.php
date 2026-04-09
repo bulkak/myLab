@@ -16,6 +16,10 @@ class ApiLoggerService
         private LoggerInterface $logger
     ) {}
 
+    /**
+     * @param array<string, mixed>|null $requestData
+     * @param array<string, mixed>|null $responseData
+     */
     public function log(
         string $provider,
         string $endpoint,

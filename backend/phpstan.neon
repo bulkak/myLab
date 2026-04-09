@@ -9,9 +9,9 @@ includes:
     - vendor/phpstan/phpstan-doctrine/rules.neon
 
 parameters:
-    # Level 5: Type inference, basic type safety, dead code detection, and strict type checks
-    # Level 6+ requires adding generic/array type annotations throughout the codebase
-    level: 5
+    # Level 6: Report missing type hints on constants, methods, and properties
+    # Level 7+ requires fixing strict type mismatches (37 errors found)
+    level: 6
     paths:
         - src
     ignoreErrors:

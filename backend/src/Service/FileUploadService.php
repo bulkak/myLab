@@ -32,6 +32,8 @@ class FileUploadService
 
     /**
      * Upload a file and return the stored path
+     *
+     * @return array{filename: string, path: string, fullPath: string, originalName: string, mimeType: string|null, size: int|null}
      */
     public function upload(UploadedFile $file, int $userId): array
     {
@@ -104,6 +106,8 @@ class FileUploadService
 
     /**
      * Get file information
+     *
+     * @return array{path: string, fullPath: string, size: int|false, mimeType: string|false, modified: int|false}|null
      */
     public function getFileInfo(string $path): ?array
     {

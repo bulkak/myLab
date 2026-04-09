@@ -11,6 +11,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class OpenAiOcrEngine implements OcrEngineInterface
 {
+    /** @var array<string, array{name: string, ram_gb: int, best_for: string}> */
     private array $supportedModels = [
         'gpt-4o' => [
             'name' => 'gpt-4o',
@@ -272,6 +273,9 @@ class OpenAiOcrEngine implements OcrEngineInterface
         }
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
     private function csvToMetrics(string $csvText): array
     {
         // Очищаем от возможных блоков кода (если модель вернула ```csv ... ```)

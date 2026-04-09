@@ -6,6 +6,7 @@ namespace App\Controller;
 
 use App\Entity\Analysis;
 use App\Entity\Metric;
+use App\Entity\User;
 use App\Message\OCRJob;
 use App\Repository\AnalysisRepository;
 use App\Repository\MetricAliasRepository;
@@ -91,7 +92,7 @@ class AnalysisController extends AbstractController
     /**
      * Get current user
      */
-    private function getCurrentUser()
+    private function getCurrentUser(): ?User
     {
         $userId = $this->sessionService->getUserId();
         if (!$userId) {

@@ -11,6 +11,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class YandexCloudOcrEngine implements OcrEngineInterface
 {
+    /** @var array<string, array{name: string, ram_gb: int, best_for: string}> */
     private array $supportedModels = [
         'qwen3.5-35b-a3b-fp8/latest' => [
             'name' => 'qwen3.5-35b-a3b-fp8/latest',
@@ -280,6 +281,9 @@ class YandexCloudOcrEngine implements OcrEngineInterface
         }
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
     private function csvToMetrics(string $csvText): array
     {
         $csvText = preg_replace('/```(?:csv)?\s*(.*?)\s*```/s', '$1', $csvText);

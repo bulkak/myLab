@@ -24,6 +24,9 @@ TXT;
     /** Запас для моделей с reasoning: иначе content остаётся null при finish_reason=length. */
     public const DATE_STEP_MAX_TOKENS = 1024;
 
+    /**
+     * @param array<string, mixed> $response
+     */
     public static function fromChatCompletionResponse(array $response): ?string
     {
         $choice = $response['choices'][0] ?? null;
