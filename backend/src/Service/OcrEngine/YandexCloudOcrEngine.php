@@ -189,6 +189,7 @@ class YandexCloudOcrEngine implements OcrEngineInterface
                 'messages' => $messagesDate,
                 'temperature' => 0.0,
                 'max_tokens' => CompletionDateExtractor::DATE_STEP_MAX_TOKENS,
+                'reasoning_effort' => 'none',
             ];
 
             $optionsDate = [
