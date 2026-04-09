@@ -140,8 +140,12 @@ class OcrManager
             $models = $engine->getAvailableModels();
             foreach ($models as $model) {
                 $info = $engine->getModelInfo($model);
-                if ($info) {
-                    $result[] = $info;
+                if ($info !== null && isset($info['name'], $info['ram_gb'], $info['best_for'])) {
+                    $result[] = [
+                        'name' => (string) $info['name'],
+                        'ram_gb' => (float) $info['ram_gb'],
+                        'best_for' => (string) $info['best_for'],
+                    ];
                 }
             }
         }
@@ -209,12 +213,26 @@ class OcrManager
         // Try finfo first
         if (function_exists('finfo_open')) {
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            if ($finfo === false) {
+                // Fallback to extension
+                return $this->detectMimeTypeFromExtension($filePath);
+            }
             $mime = finfo_file($finfo, $filePath);
             finfo_close($finfo);
-            return $mime;
+            if ($mime !== false) {
+                return $mime;
+            }
         }
 
         // Fallback to extension
+        return $this->detectMimeTypeFromExtension($filePath);
+    }
+
+    /**
+     * Detect MIME type from file extension.
+     */
+    private function detectMimeTypeFromExtension(string $filePath): string
+    {
         $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
         return match ($extension) {
             'pdf' => 'application/pdf',

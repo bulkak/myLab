@@ -221,6 +221,9 @@ class OpenAiOcrEngine implements OcrEngineInterface
             ];
 
             $jsonResult = json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+            if ($jsonResult === false) {
+                throw new \RuntimeException('Failed to encode JSON result');
+            }
 
             $this->logger->info("OpenAI OCR completed", [
                 'model' => $selectedModel,

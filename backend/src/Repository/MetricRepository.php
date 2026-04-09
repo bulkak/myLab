@@ -88,9 +88,12 @@ class MetricRepository extends ServiceEntityRepository
             WHERE a.user_id = :user_id
             ORDER BY name ASC
         ';
-        
+
         $result = $conn->executeQuery($sql, ['user_id' => $user->getId()]);
-        return $result->fetchAllAssociative();
+        $rows = $result->fetchAllAssociative();
+
+        // Ensure proper typing
+        return array_map(fn ($row) => ['name' => (string) $row['name']], $rows);
     }
 
     /**

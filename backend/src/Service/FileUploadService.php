@@ -26,7 +26,11 @@ class FileUploadService
         ParameterBagInterface $params,
         LoggerInterface $logger
     ) {
-        $this->uploadDir = $params->get('upload_dir');
+        $uploadDir = $params->get('upload_dir');
+        if (!is_string($uploadDir)) {
+            throw new \InvalidArgumentException('upload_dir must be a string');
+        }
+        $this->uploadDir = $uploadDir;
         $this->logger = $logger;
     }
 

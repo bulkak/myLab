@@ -95,17 +95,19 @@ class GigaChatOcrEngine implements OcrEngineInterface
             $firstImageId = null;
 
             foreach ($imagesBase64 as $index => $base64Image) {
+                $pageNum = (int) $index + 1;
+
                 // 1. Загружаем картинку в GigaChat
                 $imageId = $this->uploadImage($base64Image, $token, $jobId);
-                
+
                 if ($index === 0) {
                     $firstImageId = $imageId;
                 }
 
                 // 2. Отправляем запрос на распознавание (CSV) для этой страницы
                 $promptCsv = $this->promptBuilder->buildMedicalAnalysisPrompt($selectedModel);
-                
-                $this->logger->debug("Sending CSV request to GigaChat for page " . ($index + 1), [
+
+                $this->logger->debug("Sending CSV request to GigaChat for page " . $pageNum, [
                     'model' => $selectedModel,
                     'image_id' => $imageId,
                 ]);
@@ -126,28 +128,28 @@ class GigaChatOcrEngine implements OcrEngineInterface
                     'max_tokens' => 8192,
                 ];
 
-                $requestData["csv_request_page_" . ($index + 1)] = $requestDataCsv;
+                $requestData["csv_request_page_" . $pageNum] = $requestDataCsv;
 
                 $responseCsv = $this->httpClient->request('POST', self::API_URL . '/chat/completions', [
                     'headers' => [
                         'Authorization' => 'Bearer ' . $token,
                     ],
                     'json' => $requestDataCsv,
-                    'verify_peer' => false, 
+                    'verify_peer' => false,
                     'verify_host' => false,
                 ]);
 
                 $statusCode = $responseCsv->getStatusCode();
-                
+
                 if ($statusCode !== 200) {
-                    $error = "GigaChat returned HTTP {$statusCode} on CSV step for page " . ($index + 1) . ": " . $responseCsv->getContent(false);
+                    $error = "GigaChat returned HTTP {$statusCode} on CSV step for page " . $pageNum . ": " . $responseCsv->getContent(false);
                     throw new \RuntimeException($error);
                 }
 
                 $responseDataCsv = $responseCsv->toArray();
                 $csvContent = $responseDataCsv['choices'][0]['message']['content'] ?? '';
-                
-                $responseData["csv_response_page_" . ($index + 1)] = $responseDataCsv;
+
+                $responseData["csv_response_page_" . $pageNum] = $responseDataCsv;
 
                 // Парсим CSV в метрики и добавляем к общему списку
                 $pageMetrics = $this->csvToMetrics($csvContent);
@@ -208,6 +210,9 @@ class GigaChatOcrEngine implements OcrEngineInterface
             ];
 
             $jsonResult = json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+            if ($jsonResult === false) {
+                throw new \RuntimeException('Failed to encode JSON result');
+            }
 
             $this->logger->info("GigaChat OCR completed", [
                 'model' => $selectedModel,

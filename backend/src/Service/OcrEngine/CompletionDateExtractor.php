@@ -90,7 +90,11 @@ TXT;
      */
     private static function parseDateNearInvestigationLabel(string $text): ?string
     {
-        foreach (preg_split("/\r\n|\n|\r/u", $text) as $line) {
+        $lines = preg_split("/\r\n|\n|\r/u", $text);
+        if ($lines === false) {
+            return null;
+        }
+        foreach ($lines as $line) {
             $lower = mb_strtolower($line);
             if (!str_contains($lower, 'исследован')) {
                 continue;

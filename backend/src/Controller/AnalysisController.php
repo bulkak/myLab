@@ -529,7 +529,10 @@ class AnalysisController extends AbstractController
             throw $this->createNotFoundException('Файл не найден');
         }
 
-        $uploadDir = (string) $this->getParameter('upload_dir');
+        $uploadDir = $this->getParameter('upload_dir');
+        if (!is_string($uploadDir)) {
+            throw $this->createNotFoundException('Invalid upload directory configuration');
+        }
         $abs = $uploadDir . '/' . $rel;
         if (!is_file($abs)) {
             throw $this->createNotFoundException('Файл не найден на диске');
@@ -554,7 +557,10 @@ class AnalysisController extends AbstractController
             throw $this->createNotFoundException('Анализ не найден');
         }
 
-        $uploadDir = (string) $this->getParameter('upload_dir');
+        $uploadDir = $this->getParameter('upload_dir');
+        if (!is_string($uploadDir)) {
+            throw $this->createNotFoundException('Invalid upload directory configuration');
+        }
         $resolved = $this->resolveDocumentPreviewPath($analysis, $filename, $uploadDir);
         if ($resolved === null) {
             throw $this->createNotFoundException('Изображение не найдено');

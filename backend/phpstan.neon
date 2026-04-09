@@ -9,9 +9,9 @@ includes:
     - vendor/phpstan/phpstan-doctrine/rules.neon
 
 parameters:
-    # Level 6: Report missing type hints on constants, methods, and properties
-    # Level 7+ requires fixing strict type mismatches (37 errors found)
-    level: 6
+    # Level 7: Report partial type mismatches
+    # Level 8+ requires adding null checks throughout the codebase (30 errors found)
+    level: 7
     paths:
         - src
     ignoreErrors:

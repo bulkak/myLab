@@ -33,6 +33,9 @@ class TOTPService
      */
     public function checkCode(string $secret, string $code): bool
     {
+        if ($secret === '' || $code === '') {
+            return false;
+        }
         $totp = TOTP::createFromSecret($secret, clock: $this->clock);
         return $totp->verify($code);
     }
@@ -42,10 +45,13 @@ class TOTPService
      */
     public function getProvisioningUri(string $username, string $secret): string
     {
+        if ($secret === '' || $username === '' || $this->issuer === '') {
+            throw new \InvalidArgumentException('Secret, username and issuer must not be empty');
+        }
         $totp = TOTP::createFromSecret($secret, clock: $this->clock);
         $totp->setLabel($username);
         $totp->setIssuer($this->issuer);
-        
+
         return $totp->getProvisioningUri();
     }
 

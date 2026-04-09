@@ -76,7 +76,7 @@ class MetricController extends AbstractController
             return new JsonResponse(['error' => 'Metric not found'], 404);
         }
 
-        $newName = trim($request->request->get('name', ''));
+        $newName = trim((string) $request->request->get('name', ''));
         if (empty($newName)) {
             return new JsonResponse(['error' => 'Name cannot be empty'], 400);
         }

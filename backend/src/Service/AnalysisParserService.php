@@ -95,8 +95,11 @@ class AnalysisParserService
             // Count braces to find valid JSON
             $open = 0;
             $start = strpos($text, '{');
+            if ($start === false) {
+                return null;
+            }
             $end = false;
-            
+
             for ($i = $start; $i < strlen($text); $i++) {
                 if ($text[$i] === '{') $open++;
                 if ($text[$i] === '}') $open--;
@@ -105,7 +108,7 @@ class AnalysisParserService
                     break;
                 }
             }
-            
+
             if ($end !== false) {
                 return substr($text, $start, $end - $start + 1);
             }

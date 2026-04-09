@@ -70,13 +70,18 @@ class OCRJobHandler
         }
 
         $fullPath = null;
+        $uploadDir = $this->params->get('upload_dir');
+        if (!is_string($uploadDir)) {
+            throw new UnrecoverableMessageHandlingException("Invalid upload directory configuration");
+        }
+
         try {
             // Update status to processing
             $analysis->setStatus(Analysis::STATUS_PROCESSING);
             $this->entityManager->flush();
 
             // Full path to file
-            $fullPath = $this->params->get('upload_dir') . '/' . $filePath;
+            $fullPath = $uploadDir . '/' . $filePath;
             
             if (!file_exists($fullPath)) {
                 throw new UnrecoverableMessageHandlingException("File not found: {$fullPath}");
@@ -89,14 +94,19 @@ class OCRJobHandler
             
             $parsedData = $this->ocrManager->process($fullPath, $model, (string)$analysisId);
 
-            $uploadDir = (string) $this->params->get('upload_dir');
             $previewPaths = $this->persistAnalysisDocumentImages($analysisId, $fullPath, $uploadDir);
             if ($previewPaths !== []) {
-                $analysis->setDebugImagesPaths(json_encode($previewPaths, JSON_UNESCAPED_UNICODE));
+                $debugImagesJson = json_encode($previewPaths, JSON_UNESCAPED_UNICODE);
+                if ($debugImagesJson !== false) {
+                    $analysis->setDebugImagesPaths($debugImagesJson);
+                }
             }
 
             // Save raw OCR result for debugging (serialize the array)
-            $analysis->setOcrRawText(json_encode($parsedData, JSON_UNESCAPED_UNICODE));
+            $ocrRawText = json_encode($parsedData, JSON_UNESCAPED_UNICODE);
+            if ($ocrRawText !== false) {
+                $analysis->setOcrRawText($ocrRawText);
+            }
 
             // Extract analysis date if present
             if ($parsedData['analysisDate'] ?? null) {
@@ -141,12 +151,14 @@ class OCRJobHandler
             // Update status to error and store error message
             $analysis->setStatus(Analysis::STATUS_ERROR);
             $analysis->setErrorMessage($e->getMessage());
-            
-            $uploadDir = (string) $this->params->get('upload_dir');
+
             if ($fullPath !== null && is_file($fullPath)) {
                 $previewPaths = $this->persistAnalysisDocumentImages($analysisId, $fullPath, $uploadDir);
                 if ($previewPaths !== []) {
-                    $analysis->setDebugImagesPaths(json_encode($previewPaths, JSON_UNESCAPED_UNICODE));
+                    $debugImagesJson = json_encode($previewPaths, JSON_UNESCAPED_UNICODE);
+                    if ($debugImagesJson !== false) {
+                        $analysis->setDebugImagesPaths($debugImagesJson);
+                    }
                 }
             }
 

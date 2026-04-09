@@ -261,14 +261,22 @@ class UploadController extends AbstractController
             throw $this->createNotFoundException('Файл не найден');
         }
 
-        $debugDir = $this->getParameter('upload_dir') . '/debug';
+        $uploadDir = $this->getParameter('upload_dir');
+        if (!is_string($uploadDir)) {
+            throw $this->createNotFoundException('Invalid upload directory configuration');
+        }
+        $debugDir = $uploadDir . '/debug';
         $filepath = $debugDir . '/' . $filename;
 
         if (!file_exists($filepath) || !is_file($filepath)) {
             throw $this->createNotFoundException('Изображение не найдено');
         }
 
-        $response = new Response(file_get_contents($filepath));
+        $content = file_get_contents($filepath);
+        if ($content === false) {
+            throw $this->createNotFoundException('Cannot read file');
+        }
+        $response = new Response($content);
         $response->headers->set('Content-Type', mime_content_type($filepath) ?: 'image/png');
         $response->headers->set('Cache-Control', 'public, max-age=3600');
 

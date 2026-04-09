@@ -51,8 +51,8 @@ class AuthController extends AbstractController
         $username = '';
 
         if ($request->isMethod('POST')) {
-            $username = trim($request->request->get('username', ''));
-            
+            $username = trim((string) $request->request->get('username', ''));
+
             // Validate username
             if (empty($username)) {
                 $error = 'Введите логин';
@@ -133,7 +133,7 @@ class AuthController extends AbstractController
             return $this->redirectToRoute('auth_register');
         }
 
-        $code = trim($request->request->get('code', ''));
+        $code = trim((string) $request->request->get('code', ''));
         $error = null;
 
         // Validate code format
@@ -196,8 +196,8 @@ class AuthController extends AbstractController
         $username = '';
 
         if ($request->isMethod('POST')) {
-            $username = trim($request->request->get('username', ''));
-            $code = trim($request->request->get('code', ''));
+            $username = trim((string) $request->request->get('username', ''));
+            $code = trim((string) $request->request->get('code', ''));
 
             if (empty($username)) {
                 $error = 'Введите логин';
