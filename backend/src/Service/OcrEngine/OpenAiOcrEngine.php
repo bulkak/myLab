@@ -295,7 +295,7 @@ class OpenAiOcrEngine implements OcrEngineInterface
             $value = $cols[1];
             
             // Пропускаем строки без значения
-            if (empty($value) || $value === '-' || $value === '') continue;
+            if (empty($value) || $value === '-') continue;
             
             $unit = $cols[2] ?? null;
             $refMin = $cols[3] ?? null;

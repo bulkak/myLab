@@ -6,7 +6,6 @@ namespace App\Service;
 
 use App\Service\Contract\DocumentConverterInterface;
 use App\Service\Contract\OcrEngineInterface;
-use App\Service\Contract\PromptBuilderInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -25,7 +24,6 @@ class OcrManager
     /** @var iterable<OcrEngineInterface> */
     private iterable $ocrEngines;
     private DocumentConverterInterface $pdfConverter;
-    private PromptBuilderInterface $promptBuilder;
     private LoggerInterface $logger;
     private string $uploadDir;
     private string $defaultModel;
@@ -47,14 +45,12 @@ class OcrManager
     public function __construct(
         iterable $ocrEngines,
         DocumentConverterInterface $pdfConverter,
-        PromptBuilderInterface $promptBuilder,
         LoggerInterface $logger,
         string $uploadDir = '/var/www/uploads',
         string $defaultModel = 'qwen3.5-35b-a3b-fp8/latest'
     ) {
         $this->ocrEngines = $ocrEngines;
         $this->pdfConverter = $pdfConverter;
-        $this->promptBuilder = $promptBuilder;
         $this->logger = $logger;
         $this->uploadDir = $uploadDir;
         $this->defaultModel = $defaultModel;
@@ -238,22 +234,6 @@ class OcrManager
             throw new \RuntimeException("Failed to read image: {$filePath}");
         }
         return base64_encode($content);
-    }
-
-    /**
-     * Process text extracted directly from PDF (fallback).
-     */
-    private function processDirectText(string $text): array
-    {
-        // When we have direct text, we can't get structured metrics
-        // Return a structure indicating raw text mode
-        return [
-            'title' => 'PDF Text Extraction',
-            'analysisDate' => null,
-            'metrics' => [],
-            'notes' => $text,
-            'raw_text' => true,
-        ];
     }
 
     /**

@@ -118,7 +118,7 @@ class AnalysisController extends AbstractController
 
         // Имена и значения показателей: metrics[id][name], metrics[id][value]; старый формат metrics[id] = только имя
         $metricsData = $request->request->all('metrics');
-        if (is_array($metricsData)) {
+        if ($metricsData !== []) {
             foreach ($analysis->getMetrics() as $metric) {
                 $metricId = $metric->getId();
                 if ($metricId === null) {
@@ -187,7 +187,7 @@ class AnalysisController extends AbstractController
             $model = $request->query->get('model');
         }
         
-        $this->logger?->info("Reprocess requested", [
+        $this->logger->info("Reprocess requested", [
             'analysisId' => $id,
             'rawContent' => $request->getContent(),
             'postData' => $request->request->all(),
@@ -241,7 +241,7 @@ class AnalysisController extends AbstractController
             return $this->redirectToRoute('app_upload_status', ['id' => $analysis->getId()]);
 
         } catch (\Exception $e) {
-            $this->logger?->error("Reprocess failed: {$e->getMessage()}");
+            $this->logger->error("Reprocess failed: {$e->getMessage()}");
             
             return new JsonResponse([
                 'error' => 'Ошибка при перераспознавании: ' . $e->getMessage(),
