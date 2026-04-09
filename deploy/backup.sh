@@ -26,7 +26,7 @@ echo "==> Backup directory: $TARGET_DIR"
 COMPOSE_FILES=( -f docker-compose.yml -f docker-compose.prod.yml )
 
 echo "==> Dumping PostgreSQL"
-docker_compose "${COMPOSE_FILES[@]}" exec -T postgres pg_dump -U postgres -d mylab | gzip -9 > "$TARGET_DIR/mylab.sql.gz"
+docker_compose "${COMPOSE_FILES[@]}" exec -T postgres pg_dump -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-mylab}" | gzip -9 > "$TARGET_DIR/mylab.sql.gz"
 
 echo "==> Archiving uploads"
 tar -C "$ROOT" -czf "$TARGET_DIR/uploads.tar.gz" uploads

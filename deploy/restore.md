@@ -25,13 +25,13 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d postgres
-docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T postgres pg_isready -U postgres
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T postgres pg_isready -U "${POSTGRES_USER:-postgres}"
 ```
 
 ## 3. Восстановить БД
 
 ```bash
-gunzip -c backups/YYYYMMDD_HHMMSS/mylab.sql.gz | docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T postgres psql -U postgres -d mylab
+gunzip -c backups/YYYYMMDD_HHMMSS/mylab.sql.gz | docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-mylab}"
 ```
 
 ## 4. Восстановить загруженные файлы
