@@ -122,6 +122,7 @@ class YandexCloudOcrEngine implements OcrEngineInterface
                 'messages' => $messagesCsv,
                 'temperature' => 0.3,
                 'max_tokens' => 32768,
+                'reasoning_effort' => 'none',
             ];
 
             $optionsCsv = [
