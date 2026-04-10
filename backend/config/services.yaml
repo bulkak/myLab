@@ -75,7 +75,6 @@ services:
         arguments:
             $ocrEngines: !tagged_iterator app.ocr_engine
             $pdfConverter: '@App\Service\Contract\DocumentConverterInterface'
-            $promptBuilder: '@App\Service\Contract\PromptBuilderInterface'
             $uploadDir: '%upload_dir%'
             $defaultModel: 'qwen3.5-35b-a3b-fp8/latest'
 
